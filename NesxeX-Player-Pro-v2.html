@@ -1,0 +1,2287 @@
+<!DOCTYPE html>
+<html lang="fa">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>نسخه X — Player Pro</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0d0e14">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-1:#0d0e14; --card:#181a24;
+    --grad-a:#7b5cff; --grad-b:#22d3ee; --grad-c:#ff5ca8;
+    --gold:#f0b556; --text:#eef0f7; --dim:#7d81a0; --line:rgba(255,255,255,.06);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{
+    font-family:'Rajdhani',sans-serif; color:var(--text); min-height:100vh;
+    display:flex; align-items:center; justify-content:center; padding:16px;
+    background:var(--bg-1); overflow-x:hidden; position:relative;
+  }
+  #bgCanvas{ position:fixed; inset:0; width:100%; height:100%; z-index:0; }
+  #artBg{ position:fixed; inset:-12%; width:124%; height:124%; z-index:0; background-size:cover; background-position:center;
+    filter:blur(75px) saturate(1.6) brightness(.55); opacity:0; transition:opacity .8s ease; pointer-events:none; }
+  #artBg.show{ opacity:.55; }
+  .app{
+    width:100%; max-width:540px;
+    background:linear-gradient(180deg, rgba(24,26,36,.94), rgba(18,19,27,.97));
+    backdrop-filter:blur(20px);
+    border-radius:28px; border:1px solid var(--line);
+    box-shadow:0 40px 100px rgba(0,0,0,.65), inset 0 1px 0 rgba(255,255,255,.06);
+    overflow:hidden; position:relative; z-index:1;
+  }
+  .rgb-ring{ position:absolute; inset:-1px; border-radius:28px; padding:1.5px; pointer-events:none; z-index:2;
+    background:conic-gradient(from var(--ang,0deg), var(--grad-a), var(--grad-b), var(--grad-c), var(--grad-a));
+    -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor; mask-composite:exclude; opacity:.7;
+  }
+  .topbar{ display:flex; align-items:center; justify-content:space-between; padding:18px 22px 0; position:relative; z-index:3;}
+  .brand{ font-weight:700; letter-spacing:2.5px; font-size:13.5px; color:var(--dim); text-transform:uppercase; }
+  .brand b{ background:linear-gradient(90deg, var(--grad-a), var(--grad-b)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .tab-switch{ display:flex; gap:4px; background:rgba(255,255,255,.045); border-radius:22px; padding:4px; }
+  .tab{ padding:7px 13px; border-radius:18px; font-size:11.5px; font-weight:600; letter-spacing:.3px; color:var(--dim); cursor:pointer; transition:.2s; white-space:nowrap;}
+  .tab.active{ background:linear-gradient(90deg, var(--grad-a), var(--grad-b)); color:#0d0e14; }
+
+  .panel{ display:none; position:relative; z-index:3; }
+  .panel.show{ display:block; }
+  .mini-player-bar{ display:flex; align-items:center; gap:10px; margin:10px 18px 0; padding:9px 12px; border-radius:16px;
+    background:rgba(255,255,255,.05); border:1px solid var(--line); cursor:pointer; position:relative; z-index:3; }
+  .mini-player-thumb{ width:34px; height:34px; border-radius:8px; flex-shrink:0; background:linear-gradient(135deg, var(--grad-a), var(--grad-b)); background-size:cover; background-position:center; }
+  .mini-player-info{ flex:1; min-width:0; }
+  .mini-player-name{ font-size:12.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .mini-player-progress{ height:3px; border-radius:2px; background:rgba(255,255,255,.08); margin-top:5px; overflow:hidden; }
+  .mini-player-fill{ height:100%; width:0%; background:linear-gradient(90deg, var(--grad-a), var(--grad-b)); }
+  .mini-player-play{ width:30px; height:30px; border-radius:50%; background:linear-gradient(135deg, var(--grad-b), var(--grad-a));
+    display:flex; align-items:center; justify-content:center; color:#0d0e14; flex-shrink:0; }
+  .mini-player-play svg{ width:14px; height:14px; }
+
+  /* Player tab */
+  .cover-zone{ display:flex; justify-content:center; align-items:center; padding:18px 0 6px; position:relative; }
+  .cover{
+    width:260px; height:260px; border-radius:26px;
+    background:linear-gradient(150deg, #232538 0%, #16171f 45%, #101119 100%);
+    box-shadow:0 22px 55px rgba(0,0,0,.65), 0 10px 26px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.05);
+    position:relative; overflow:hidden; transition:box-shadow .3s, transform .3s;
+  }
+  .cover .cover-art{ position:absolute; inset:0; background-size:cover; background-position:center; opacity:0; transform:scale(1.04); transition:opacity .5s ease, transform .5s ease; }
+  .cover .cover-art.show{ opacity:1; transform:scale(1); }
+  .cover .cover-placeholder{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; opacity:.5; transition:opacity .3s; }
+  .cover .cover-placeholder svg{ width:48px; height:48px; color:var(--dim); }
+  .cover.playing .cover-placeholder{ opacity:0; }
+
+  .bars{ display:flex; align-items:flex-end; gap:3.5px; height:36px; padding:0 26px; margin-top:4px; }
+  .bar{ flex:1; background:linear-gradient(180deg, var(--grad-b), var(--grad-a)); border-radius:2px 2px 0 0; height:4px; transition:height .06s ease-out; opacity:.88; }
+
+  .track-info{ text-align:center; padding:8px 28px 0; }
+  .track-title{ font-size:19.5px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .track-sub{ font-size:12px; color:var(--dim); margin-top:2px; font-family:'JetBrains Mono',monospace; letter-spacing:.4px; }
+
+  .seek-row{ display:flex; align-items:center; gap:10px; padding:14px 26px 0; }
+  .time{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--dim); min-width:34px; }
+  input[type=range]{ -webkit-appearance:none; appearance:none; width:100%; height:6px; border-radius:4px; background:rgba(255,255,255,.08); outline:none; }
+  input[type=range]::-webkit-slider-thumb{ -webkit-appearance:none; width:15px; height:15px; border-radius:50%;
+    background:linear-gradient(135deg, var(--grad-b), var(--grad-a)); box-shadow:0 0 10px rgba(34,211,238,.65); cursor:pointer; margin-top:-4.5px; transition:transform .15s ease; }
+  input[type=range]:active::-webkit-slider-thumb{ transform:scale(1.25); }
+  #seek{ height:6px; border-radius:4px; background:linear-gradient(90deg, var(--grad-a), var(--grad-b)) 0/0% 100% no-repeat, rgba(255,255,255,.08); transition:background-size .18s linear; }
+  #seek:active{ transition:none; }
+
+  .controls{ display:flex; align-items:center; justify-content:center; gap:16px; padding:16px 0 6px; }
+  .ctrl-btn{ width:42px; height:42px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    color:var(--text); cursor:pointer; background:rgba(255,255,255,.045); transition:.15s; position:relative; }
+  .ctrl-btn:hover{ background:rgba(255,255,255,.09); }
+  .ctrl-btn svg{ width:18px; height:18px; }
+  .ctrl-btn.tiny{ font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700; letter-spacing:.3px; }
+  .ctrl-btn.tiny.active{ background:linear-gradient(135deg, var(--grad-c), var(--grad-a)); color:#0d0e14; }
+  .ctrl-btn .badge{ position:absolute; top:-3px; right:-3px; width:15px; height:15px; border-radius:50%; background:var(--grad-b);
+    color:#0d0e14; font-size:9px; font-weight:700; display:flex; align-items:center; justify-content:center; }
+  .play-btn{ width:68px; height:68px; background:linear-gradient(135deg, var(--grad-b), var(--grad-a)); box-shadow:0 10px 28px rgba(123,92,255,.45); color:#0d0e14; }
+  .play-btn svg{ width:27px; height:27px; }
+  .play-btn:hover{ filter:brightness(1.12); }
+  .play-btn:active{ transform:scale(.94); }
+
+  .vol-row{ display:flex; align-items:center; gap:10px; padding:8px 28px 14px; }
+  .vol-row svg{ width:16px; height:16px; color:var(--dim); flex-shrink:0; }
+
+  .mini-row{ display:flex; justify-content:center; gap:8px; padding-bottom:18px; flex-wrap:wrap; }
+  .mini-chip{ font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--dim); background:rgba(255,255,255,.05);
+    padding:7px 14px; border-radius:16px; cursor:pointer; letter-spacing:.3px; transition:.15s; }
+  .mini-chip.active{ background:linear-gradient(90deg, var(--grad-a), var(--grad-b)); color:#0d0e14; font-weight:700; }
+  .mini-chip.big8d{ font-size:14px; font-weight:800; padding:10px 22px; border-radius:20px; letter-spacing:.5px; }
+  .mini-chip.big8d.active{ box-shadow:0 5px 18px rgba(123,92,255,.55); }
+
+  /* EQ tab */
+  .eq-scroll{ padding:16px 18px 10px; max-height:520px; overflow-y:auto; }
+  .section-title{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--dim); letter-spacing:.5px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;}
+  .eq-preset-row{ display:flex; gap:8px; overflow-x:auto; padding-bottom:14px; }
+  .preset-chip{ flex-shrink:0; padding:9px 16px; border-radius:18px; font-size:12px; font-weight:600; background:rgba(255,255,255,.055); color:var(--dim); cursor:pointer; letter-spacing:.2px; white-space:nowrap; transition:.15s; }
+  .preset-chip.active{ background:linear-gradient(90deg, var(--grad-a), var(--grad-b)); color:#0d0e14; }
+  .preset-chip.nesx.active{ background:linear-gradient(90deg, var(--gold), #ffdca0); color:#3a2200; box-shadow:0 0 14px rgba(240,181,86,.55); }
+  .preset-chip.save-chip{ background:rgba(255,255,255,.03); border:1px dashed rgba(255,255,255,.18); color:var(--dim); }
+
+  .tone-row{ display:flex; gap:10px; padding-bottom:14px; flex-wrap:wrap; }
+  .tone-box{ flex:1; min-width:90px; background:rgba(255,255,255,.035); border-radius:14px; padding:11px 8px; text-align:center; }
+  .tone-box .tone-label{ font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--dim); letter-spacing:.4px; margin-bottom:6px; }
+  .tone-box .tone-val{ font-family:'JetBrains Mono',monospace; font-size:11.5px; color:var(--grad-b); margin-top:5px; }
+
+  .eq-bands{ display:flex; justify-content:space-between; gap:2px; overflow-x:auto; padding:4px 0 6px; }
+  .eq-band{ display:flex; flex-direction:column; align-items:center; gap:5px; flex-shrink:0; width:18px; }
+  .fader-track{ height:160px; width:18px; border-radius:10px; background:rgba(255,255,255,.05); position:relative; cursor:pointer; touch-action:none; }
+  .fader-fill{ position:absolute; left:2px; right:2px; bottom:50%; border-radius:8px; background:linear-gradient(180deg, var(--grad-c), var(--grad-a)); pointer-events:none; }
+  .fader-mid{ position:absolute; left:0; right:0; top:50%; height:1px; background:rgba(255,255,255,.15); pointer-events:none; }
+  .fader-thumb{ position:absolute; left:1px; right:1px; height:14px; border-radius:7px; background:linear-gradient(135deg, #fff, #cfd3e6);
+    box-shadow:0 2px 6px rgba(0,0,0,.5); pointer-events:none; }
+  .eq-label{ font-family:'JetBrains Mono',monospace; font-size:7.5px; color:var(--dim); letter-spacing:.1px; }
+  .eq-val{ font-family:'JetBrains Mono',monospace; font-size:7.5px; color:var(--grad-b); }
+  .eq-toolbar{ display:flex; justify-content:space-between; align-items:center; padding-top:14px; gap:10px; flex-wrap:wrap; }
+  .toggle-pill{ display:flex; align-items:center; gap:8px; background:rgba(255,255,255,.045); padding:8px 14px; border-radius:18px; cursor:pointer; }
+  .toggle-pill .dot{ width:9px; height:9px; border-radius:50%; background:#555; }
+  .toggle-pill.on .dot{ background:var(--grad-b); box-shadow:0 0 7px var(--grad-b); }
+  .toggle-pill span{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--dim); }
+
+  /* Queue / Favorites */
+  .playlist-panel{ padding:8px 12px 18px; max-height:460px; overflow-y:auto; }
+  .search-input{ display:block; width:100%; background:rgba(255,255,255,.05); border:none; outline:none; color:var(--text);
+    font-family:'Rajdhani',sans-serif; font-size:14px; padding:11px 15px; border-radius:14px; margin:2px 0 10px; }
+  .search-input::placeholder{ color:var(--dim); }
+  .list-header{ display:flex; gap:8px; padding:4px 6px 12px; }
+  .list-tab{ flex:1; text-align:center; padding:9px 0; border-radius:14px; font-size:13px; font-weight:600; color:var(--dim); background:rgba(255,255,255,.04); cursor:pointer; transition:.15s; }
+  .list-tab.active{ background:linear-gradient(90deg, var(--grad-a), var(--grad-b)); color:#0d0e14; }
+  .filter-chip{ padding:7px 16px; border-radius:14px; font-size:12px; font-weight:600; color:var(--dim); background:rgba(255,255,255,.05); cursor:pointer; transition:.15s; }
+  .filter-chip.active{ background:linear-gradient(90deg, var(--grad-a), var(--grad-b)); color:#0d0e14; }
+  .track-row{ display:flex; align-items:center; gap:10px; padding:12px 10px; border-radius:14px; cursor:grab; transition:.12s; }
+  .track-row:active{ cursor:grabbing; }
+  .track-row:hover{ background:rgba(255,255,255,.045); }
+  .track-row.active{ background:rgba(123,92,255,.14); }
+  .track-row.active .track-name{ color:var(--grad-b); }
+  .track-row.drag-over{ border-top:2px solid var(--grad-b); }
+  .track-thumb{ width:44px; height:44px; border-radius:10px; flex-shrink:0; background:linear-gradient(135deg, var(--grad-a), var(--grad-b)); background-size:cover; background-position:center; display:flex; align-items:center; justify-content:center; }
+  .track-thumb svg{ width:18px; height:18px; color:rgba(0,0,0,.35); }
+  .track-idx{ width:22px; font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--dim); text-align:center; }
+  .track-meta{ flex:1; min-width:0; }
+  .track-name{ font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .track-dur{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--dim); margin-top:1px; }
+  .track-actions{ display:flex; gap:6px; align-items:center; }
+  .act-btn{ width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.05); cursor:pointer; color:var(--dim); transition:.15s; }
+  .act-btn:hover{ background:rgba(255,255,255,.1); color:var(--text); }
+  .act-btn.liked{ color:#ff5ca8; background:rgba(255,92,168,.12); }
+  .act-btn svg{ width:15px; height:15px; }
+  .drag-handle{ color:var(--dim); font-size:14px; padding:0 2px; cursor:grab; }
+  .empty-state{ text-align:center; padding:30px 20px; color:var(--dim); font-size:13.5px; }
+  .add-btn{ display:inline-flex; align-items:center; gap:8px; margin-top:14px; background:linear-gradient(90deg, var(--grad-a), var(--grad-b));
+    color:#0d0e14; font-weight:700; letter-spacing:.4px; font-size:12.5px; padding:11px 20px; border-radius:22px; cursor:pointer; }
+  .add-btn svg{ width:14px; height:14px; }
+  #fileInput{ display:none; }
+
+  /* Settings */
+  .settings-list{
+    padding:12px 20px 22px;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+    max-height: min(520px, calc(100vh - 140px));
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .setting-row{ display:flex; align-items:center; justify-content:space-between; background:rgba(255,255,255,.035); padding:13px 16px; border-radius:14px; }
+  .setting-label{ font-size:14.5px; }
+  .setting-sub{ font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--dim); margin-top:2px; }
+  .switch{ width:42px; height:24px; border-radius:13px; background:rgba(255,255,255,.1); position:relative; cursor:pointer; flex-shrink:0; }
+  .switch::after{ content:""; position:absolute; top:3px; left:3px; width:18px; height:18px; border-radius:50%; background:#888; transition:.2s; }
+  .switch.on{ background:linear-gradient(90deg, var(--grad-a), var(--grad-b)); }
+  .switch.on::after{ transform:translateX(18px); background:#fff; }
+  .sleep-row{ display:flex; gap:7px; flex-wrap:wrap; }
+  .sleep-chip{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--dim); background:rgba(255,255,255,.055); padding:8px 13px; border-radius:14px; cursor:pointer; }
+  .sleep-chip.active{ background:linear-gradient(90deg, var(--grad-a), var(--grad-b)); color:#0d0e14; font-weight:700; }
+
+
+  .accent-swatch{
+    width:36px; height:36px; border-radius:12px; cursor:pointer; border:2px solid transparent;
+    transition:transform .15s, border-color .15s; flex-shrink:0;
+  }
+  .accent-swatch:hover{ transform:scale(1.08); }
+  .accent-swatch.active{ border-color:#fff; box-shadow:0 0 0 2px rgba(255,255,255,.25); }
+  .settings-section-title{
+    font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--dim);
+    letter-spacing:.5px; margin:14px 0 4px; padding:0 2px;
+  }
+  .settings-section-title:first-child{ margin-top:4px; }
+
+  ::-webkit-scrollbar{ height:6px; width:6px; }
+  ::-webkit-scrollbar-thumb{ background:rgba(255,255,255,.12); border-radius:4px; }
+</style>
+</head>
+<body>
+
+<canvas id="bgCanvas"></canvas>
+<div id="artBg"></div>
+<input type="file" id="fileInput" accept="audio/*" multiple>
+
+<div class="app">
+  <div class="rgb-ring" id="rgbRing"></div>
+  <div class="topbar">
+    <div class="brand"><b>نسخه X</b> PLAYER</div>
+    <div class="tab-switch">
+      <div class="tab active" data-tab="player">پلیر</div>
+      <div class="tab" data-tab="eq">اکولایزر</div>
+      <div class="tab" data-tab="queue">لیست</div>
+      <div class="tab" data-tab="settings">تنظیمات</div>
+    </div>
+  </div>
+
+  <div class="mini-player-bar" id="miniPlayerBar" style="display:none;">
+    <div class="mini-player-thumb" id="miniThumb"></div>
+    <div class="mini-player-info">
+      <div class="mini-player-name" id="miniName">—</div>
+      <div class="mini-player-progress"><div class="mini-player-fill" id="miniFill"></div></div>
+    </div>
+    <div class="mini-player-play" id="miniPlayBtn"><svg id="miniPlayIcon" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></div>
+  </div>
+
+  <div class="panel show" id="tab-player">
+    <div class="cover-zone"><div class="cover" id="disc"><div class="cover-art" id="discArt"></div><div class="cover-placeholder"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55a4 4 0 1 0 2 3.45V7h4V3h-6z"/></svg></div></div></div>
+    <div class="bars" id="bars"></div>
+    <div class="track-info">
+      <div class="track-title" id="trackTitle">فایلی انتخاب نشده</div>
+      <div class="track-sub" id="trackSub">— از —</div>
+    </div>
+    <div class="seek-row">
+      <span class="time" id="curTime">0:00</span>
+      <input type="range" id="seek" value="0" min="0" max="100" step="0.1">
+      <span class="time" id="durTime">0:00</span>
+    </div>
+    <div class="controls">
+      <div class="ctrl-btn tiny" id="shuffleBtn" title="شافل">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg>
+      </div>
+      <div class="ctrl-btn" id="prevBtn"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg></div>
+      <div class="ctrl-btn play-btn" id="playBtn"><svg id="playIcon" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></div>
+      <div class="ctrl-btn" id="nextBtn"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zM6 6v12l8.5-6z"/></svg></div>
+      <div class="ctrl-btn tiny" id="repeatBtn" title="ریپیت">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg>
+      </div>
+    </div>
+    <div class="vol-row">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 10v4h4l5 5V5L7 10H3zm13.5 2c0-1.77-1-3.29-2.5-4.03v8.05c1.5-.73 2.5-2.25 2.5-4.02z"/></svg>
+      <input type="range" id="volSlider" min="0" max="100" value="80">
+    </div>
+    <div class="mini-row">
+      <div class="mini-chip big8d" id="mode8d">8D</div>
+      <div class="mini-chip" id="loudnessBtn">Loudness</div>
+      <div class="mini-chip" id="crossfadeBtn">Crossfade</div>
+      <div class="mini-chip" id="studioBtn">Studio</div>
+      <div class="mini-chip" id="widenBtn">Widen</div>
+      <div class="mini-chip" id="punchBtn">Punch</div>
+      <div class="mini-chip" id="nightBtn">Night</div>
+      <div class="mini-chip" id="abCompareBtn" title="مقایسه سریع با/بدون افکت‌ها">A/B</div>
+    </div>
+  </div>
+
+  <div class="panel" id="tab-eq">
+    <div class="eq-scroll">
+      <div class="section-title">پریست‌ها</div>
+      <div class="eq-preset-row" id="presetRow"></div>
+
+      <div class="tone-row">
+        <div class="tone-box">
+          <div class="tone-label">PREAMP</div>
+          <input type="range" id="preampSlider" min="-12" max="12" value="0">
+          <div class="tone-val" id="preampVal">0dB</div>
+        </div>
+        <div class="tone-box">
+          <div class="tone-label">BALANCE</div>
+          <input type="range" id="balanceSlider" min="-100" max="100" value="0">
+          <div class="tone-val" id="balanceVal">مرکز</div>
+        </div>
+        <div class="tone-box">
+          <div class="tone-label">WIDEN</div>
+          <input type="range" id="widenSlider" min="0" max="100" value="0">
+          <div class="tone-val" id="widenVal">0%</div>
+        </div>
+      </div>
+
+      <div class="section-title">تن کنترل</div>
+      <div class="tone-row">
+        <div class="tone-box">
+          <div class="tone-label">BASS</div>
+          <input type="range" id="bassBoostSlider" min="0" max="15" value="0">
+          <div class="tone-val" id="bassBoostVal">0dB</div>
+        </div>
+        <div class="tone-box">
+          <div class="tone-label">TREBLE</div>
+          <input type="range" id="trebleBoostSlider" min="0" max="15" value="0">
+          <div class="tone-val" id="trebleBoostVal">0dB</div>
+        </div>
+        <div class="tone-box">
+          <div class="tone-label">VOCAL</div>
+          <input type="range" id="vocalBoostSlider" min="0" max="12" value="0">
+          <div class="tone-val" id="vocalBoostVal">0dB</div>
+        </div>
+        <div class="tone-box">
+          <div class="tone-label">PRESENCE</div>
+          <input type="range" id="presenceSlider" min="0" max="12" value="0">
+          <div class="tone-val" id="presenceVal">0dB</div>
+        </div>
+        <div class="tone-box">
+          <div class="tone-label">AIR</div>
+          <input type="range" id="airSlider" min="0" max="12" value="0">
+          <div class="tone-val" id="airVal">0dB</div>
+        </div>
+      </div>
+
+      <div class="section-title">
+        اکولایزر گرافیکی
+        <span id="eqBypassLabel" style="color:var(--grad-b); cursor:pointer;">فعال</span>
+      </div>
+      <div class="eq-mode-row" style="display:flex; gap:8px; padding-bottom:10px;">
+        <div class="filter-chip active" id="eqMode32Btn">۳۲ باند</div>
+        <div class="filter-chip" id="eqMode12Btn">۱۲ باند</div>
+      </div>
+      <div class="eq-bands" id="eqBands"></div>
+      <div class="eq-bands" id="eqBands12" style="display:none;"></div>
+
+      <div class="eq-toolbar">
+        <div class="toggle-pill on" id="eqBypassPill"><span class="dot"></span><span>EQ فعال</span></div>
+        <div class="toggle-pill" id="resetBtn" style="cursor:pointer;"><span>↺ ریست همه</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" id="tab-queue">
+    <div class="playlist-panel">
+      <input type="text" id="searchInput" class="search-input" placeholder="جستجوی آهنگ…">
+      <div class="list-header">
+        <div class="list-tab active" data-list="all">همه آهنگ‌ها</div>
+        <div class="list-tab" data-list="fav">مورد علاقه</div>
+      </div>
+      <div id="playlist"></div>
+    </div>
+  </div>
+
+  <div class="panel" id="tab-settings">
+    <div class="settings-list">
+
+      <div class="settings-section-title">🎧 صدا</div>
+
+      <div class="setting-row">
+        <div><div class="setting-label">حالت ۸ بعدی</div><div class="setting-sub">چرخش ۳۶۰ درجه دور سر</div></div>
+        <div class="switch" id="switch8d"></div>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">Stereo Expansion</div><div class="setting-sub">گسترش عرض استریو</div></div>
+        <div class="switch" id="switchWiden"></div>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">Loudness</div><div class="setting-sub">تقویت هوشمند بیس و تربل</div></div>
+        <div class="switch" id="switchLoudness"></div>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">Bass Boost</div><div class="setting-sub">تقویت قوی بیس</div></div>
+        <div class="switch" id="switchBassBoost"></div>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">Crossfade واقعی</div><div class="setting-sub">محو نرم</div></div>
+        <div class="switch" id="switchCrossfade"></div>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">Gapless Playback</div><div class="setting-sub">پخش بدون فاصله بین آهنگ‌ها</div></div>
+        <div class="switch" id="switchGapless"></div>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">Advanced Limiter</div><div class="setting-sub">Anti-Clip قوی و پیشرفته</div></div>
+        <div class="switch" id="switchLimiter"></div>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">Dynamic Range</div><div class="setting-sub">فشرده‌سازی داینامیک ملایم</div></div>
+        <div class="switch" id="switchDRC"></div>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">ReplayGain</div><div class="setting-sub">نرمال‌سازی خودکار بلندی صدا</div></div>
+        <div class="switch" id="switchReplayGain"></div>
+      </div>
+
+      <div class="settings-section-title">📂 پخش</div>
+
+      <div class="setting-row" style="flex-direction:column; align-items:stretch; gap:10px;">
+        <div class="setting-label">سرعت پخش</div>
+        <div style="display:flex; align-items:center; gap:12px;">
+          <input type="range" id="speedSlider" min="0.5" max="2" step="0.05" value="1" style="flex:1;">
+          <span class="setting-sub" id="speedVal" style="min-width:44px; font-size:12px;">1.00x</span>
+        </div>
+      </div>
+      <div class="setting-row" style="flex-direction:column; align-items:stretch; gap:10px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div class="setting-label">تایمر خواب</div>
+          <span class="setting-sub" id="sleepRemaining" style="font-size:11px;"></span>
+        </div>
+        <div class="sleep-row" id="sleepRow"></div>
+        <div class="toggle-pill" id="sleepFadePill" style="align-self:flex-start; margin-top:2px;">
+          <span class="dot"></span><span>محو شدن در پایان</span>
+        </div>
+      </div>
+
+      <div class="settings-section-title">🎛️ ظاهر</div>
+
+      <div class="setting-row" style="flex-direction:column; align-items:stretch; gap:10px;">
+        <div class="setting-label">رنگ اصلی برنامه</div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;" id="accentRow">
+          <div class="accent-swatch active" data-a="#7b5cff" data-b="#22d3ee" data-c="#ff5ca8" style="background:linear-gradient(135deg,#7b5cff,#22d3ee);"></div>
+          <div class="accent-swatch" data-a="#ff5ca8" data-b="#f0b556" data-c="#7b5cff" style="background:linear-gradient(135deg,#ff5ca8,#f0b556);"></div>
+          <div class="accent-swatch" data-a="#22d3ee" data-b="#34d399" data-c="#7b5cff" style="background:linear-gradient(135deg,#22d3ee,#34d399);"></div>
+          <div class="accent-swatch" data-a="#f0b556" data-b="#ff7b5c" data-c="#ff5ca8" style="background:linear-gradient(135deg,#f0b556,#ff7b5c);"></div>
+          <div class="accent-swatch" data-a="#a78bfa" data-b="#f472b6" data-c="#22d3ee" style="background:linear-gradient(135deg,#a78bfa,#f472b6);"></div>
+          <div class="accent-swatch" data-a="#38bdf8" data-b="#818cf8" data-c="#c084fc" style="background:linear-gradient(135deg,#38bdf8,#818cf8);"></div>
+        </div>
+      </div>
+      <div class="setting-row" style="flex-direction:column; align-items:stretch; gap:8px;">
+        <div class="setting-label">شدت بلور</div>
+        <div style="display:flex; align-items:center; gap:12px;">
+          <input type="range" id="blurSlider" min="20" max="120" value="75" style="flex:1;">
+          <span class="setting-sub" id="blurVal" style="min-width:44px; font-size:12px;">75</span>
+        </div>
+      </div>
+      <div class="setting-row" style="flex-direction:column; align-items:stretch; gap:8px;">
+        <div class="setting-label">سرعت انیمیشن</div>
+        <div style="display:flex; align-items:center; gap:12px;">
+          <input type="range" id="animSpeedSlider" min="0.4" max="2" step="0.1" value="1" style="flex:1;">
+          <span class="setting-sub" id="animSpeedVal" style="min-width:44px; font-size:12px;">1.0x</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+
+  // Dual audio for real crossfade
+  const audioA = new Audio();
+  const audioB = new Audio();
+  audioA.crossOrigin = audioB.crossOrigin = "anonymous";
+  let activeAudio = audioA;
+  let nextAudio = audioB;
+  let usingA = true;
+
+  let queue = [], currentIndex = -1;
+  let shuffleOn = false, repeatMode = 0;
+  let favorites = new Set(); // store track ids (name+size)
+
+  const trackTitle=$('trackTitle'), trackSub=$('trackSub');
+  const seek=$('seek'), curTime=$('curTime'), durTime=$('durTime');
+  const playBtn=$('playBtn'), playIcon=$('playIcon');
+  const prevBtn=$('prevBtn'), nextBtn=$('nextBtn');
+  const shuffleBtn=$('shuffleBtn'), repeatBtn=$('repeatBtn');
+  const volSlider=$('volSlider');
+  const playlistEl=$('playlist');
+  const fileInput=$('fileInput');
+  const disc=$('disc'), discArt=$('discArt'), artBg=$('artBg');
+  const barsEl=$('bars');
+  const tabs=document.querySelectorAll('.tab');
+  const panels=document.querySelectorAll('.panel');
+  const mode8dChip=$('mode8d'), loudnessChip=$('loudnessBtn'), crossfadeChip=$('crossfadeBtn');
+  const studioChip=$('studioBtn'), widenChip=$('widenBtn'), punchChip=$('punchBtn'), nightChip=$('nightBtn'), abCompareChip=$('abCompareBtn');
+  const bassBoostSlider=$('bassBoostSlider'), bassBoostVal=$('bassBoostVal');
+  const trebleBoostSlider=$('trebleBoostSlider'), trebleBoostVal=$('trebleBoostVal');
+  const vocalBoostSlider=$('vocalBoostSlider'), vocalBoostVal=$('vocalBoostVal');
+  const presenceSlider=$('presenceSlider'), presenceVal=$('presenceVal');
+  const airSlider=$('airSlider'), airVal=$('airVal');
+  const switch8d=$('switch8d'), switchLoudness=$('switchLoudness'), switchCrossfade=$('switchCrossfade'), switchWiden=$('switchWiden');
+  const switchBassBoost=$('switchBassBoost'), switchGapless=$('switchGapless'), switchLimiter=$('switchLimiter');
+  const switchDRC=$('switchDRC'), switchReplayGain=$('switchReplayGain');
+  const sleepFadePill=$('sleepFadePill'), sleepRemainingEl=$('sleepRemaining');
+  const blurSlider=$('blurSlider'), blurVal=$('blurVal');
+  const animSpeedSlider=$('animSpeedSlider'), animSpeedVal=$('animSpeedVal');
+  const eqBypassPill=$('eqBypassPill'), eqBypassLabel=$('eqBypassLabel'), resetBtn=$('resetBtn');
+  const preampSlider=$('preampSlider'), preampVal=$('preampVal');
+  const balanceSlider=$('balanceSlider'), balanceVal=$('balanceVal');
+  const widenSlider=$('widenSlider'), widenVal=$('widenVal');
+
+  let masterVolume = 0.8;
+  activeAudio.volume = masterVolume;
+
+  // Visualizer bars
+  const BAR_COUNT = 36;
+  for(let i=0;i<BAR_COUNT;i++){ const b=document.createElement('div'); b.className='bar'; barsEl.appendChild(b); }
+  const barEls = barsEl.querySelectorAll('.bar');
+
+  function fmtTime(s){ if(!isFinite(s)) return "0:00"; const m=Math.floor(s/60); const sec=Math.floor(s%60).toString().padStart(2,'0'); return `${m}:${sec}`; }
+  function genId(){
+    if(window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    return 't_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,10);
+  }
+
+  const miniBar=$('miniPlayerBar'), miniName=$('miniName'), miniThumb=$('miniThumb'), miniFill=$('miniFill'), miniPlayBtn=$('miniPlayBtn'), miniPlayIcon=$('miniPlayIcon');
+  function syncMiniPlayerInfo(){
+    if(!miniBar) return;
+    miniName.textContent = trackTitle.textContent;
+    miniThumb.style.backgroundImage = discArt.classList.contains('show') ? discArt.style.backgroundImage : '';
+  }
+  function getActiveTabName(){ const el = document.querySelector('.tab.active'); return el ? el.dataset.tab : 'player'; }
+  function updateMiniBarVisibility(activeTabName){
+    if(!miniBar) return;
+    miniBar.style.display = (activeTabName !== 'player' && currentIndex >= 0) ? 'flex' : 'none';
+  }
+
+  // ---------- Tabs ----------
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabs.forEach(t=>t.classList.remove('active'));
+      tab.classList.add('active');
+      panels.forEach(p=>p.classList.remove('show'));
+      $('tab-'+tab.dataset.tab).classList.add('show');
+      updateMiniBarVisibility(tab.dataset.tab);
+    });
+  });
+  if(miniBar){
+    miniBar.addEventListener('click', (e) => {
+      if(e.target.closest('#miniPlayBtn')) return;
+      document.querySelector('.tab[data-tab="player"]').click();
+    });
+    miniPlayBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      playBtn.click();
+    });
+  }
+
+  // List tabs (All / Favorites)
+  let currentList = 'all';
+  document.querySelectorAll('.list-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.list-tab').forEach(t=>t.classList.remove('active'));
+      tab.classList.add('active');
+      currentList = tab.dataset.list;
+      renderPlaylist();
+    });
+  });
+
+  // ---------- IndexedDB Persistence ----------
+  // v2: split into a small "trackMeta" store (name/size/duration/liked - safe to load
+  // all at once) and a large "trackData" store (the actual audio bytes - only ever
+  // fetched one track at a time, on demand). The old v1 schema kept full audio bytes
+  // inside every record and read them ALL into memory via getAll() on every app open;
+  // for a real library that's hundreds of MB to GBs of RAM/blob data materialized on
+  // every single launch. Old data is migrated automatically, once.
+  const DB_NAME = 'NesxeXPlayerDB';
+  const DB_VERSION = 2;
+  let db = null;
+
+  function openDB(){
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, DB_VERSION);
+      req.onupgradeneeded = (e) => {
+        const database = e.target.result;
+        const tx = e.target.transaction;
+        const hadOldStore = database.objectStoreNames.contains('tracks');
+        if(!database.objectStoreNames.contains('trackMeta')) database.createObjectStore('trackMeta', { keyPath: 'id' });
+        if(!database.objectStoreNames.contains('trackData')) database.createObjectStore('trackData', { keyPath: 'id' });
+        if(!database.objectStoreNames.contains('meta')) database.createObjectStore('meta', { keyPath: 'key' });
+        if(hadOldStore){
+          const oldStore = tx.objectStore('tracks');
+          const metaStore = tx.objectStore('trackMeta');
+          const dataStore = tx.objectStore('trackData');
+          oldStore.openCursor().onsuccess = (ev) => {
+            const cursor = ev.target.result;
+            if(cursor){
+              const rec = cursor.value;
+              metaStore.put({ id: rec.id, name: rec.name, size: rec.size, type: rec.type, duration: rec.duration, liked: !!rec.liked });
+              dataStore.put({ id: rec.id, data: rec.data });
+              cursor.continue();
+            }
+          };
+        }
+      };
+      req.onsuccess = (e) => {
+        db = e.target.result;
+        // one-time cleanup: empty the old combined store now that data lives in the new ones
+        if(db.objectStoreNames.contains('tracks')){
+          try{ db.transaction('tracks','readwrite').objectStore('tracks').clear(); }catch(err){}
+        }
+        resolve(db);
+      };
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  // Small, cheap - safe to write on every rename/like/duration update
+  async function saveTrackMeta(track){
+    if(!db) return;
+    try{
+      const tx = db.transaction('trackMeta', 'readwrite');
+      tx.objectStore('trackMeta').put({
+        id: track.id,
+        name: track.name,
+        size: track.size || 0,
+        type: track._type || (track.file && track.file.type) || 'audio/mpeg',
+        duration: track.duration || null,
+        liked: favorites.has(track.id)
+      });
+    }catch(e){ console.warn('save meta failed', e); }
+  }
+
+  // Large - only called when we actually have the raw file (new upload)
+  async function saveTrackData(track){
+    if(!db || !track.file) return;
+    try{
+      const buf = await track.file.arrayBuffer();
+      const tx = db.transaction('trackData', 'readwrite');
+      tx.objectStore('trackData').put({ id: track.id, data: buf });
+    }catch(e){ console.warn('save data failed', e); }
+  }
+
+  async function loadAllTrackMeta(){
+    if(!db) return [];
+    return new Promise(resolve => {
+      const tx = db.transaction('trackMeta', 'readonly');
+      const req = tx.objectStore('trackMeta').getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => resolve([]);
+    });
+  }
+
+  // Fetches ONE track's audio bytes - only called right before that track is played
+  async function loadTrackData(id){
+    if(!db) return null;
+    return new Promise(resolve => {
+      const tx = db.transaction('trackData', 'readonly');
+      const req = tx.objectStore('trackData').get(id);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => resolve(null);
+    });
+  }
+
+  async function removeTrackFromDB(id){
+    if(!db) return;
+    try{
+      db.transaction('trackMeta', 'readwrite').objectStore('trackMeta').delete(id);
+      db.transaction('trackData', 'readwrite').objectStore('trackData').delete(id);
+    }catch(e){}
+  }
+
+  async function saveMeta(key, value){
+    if(!db) return;
+    const tx = db.transaction('meta', 'readwrite');
+    tx.objectStore('meta').put({ key, value });
+  }
+
+  async function loadMeta(key){
+    if(!db) return null;
+    return new Promise(resolve => {
+      const tx = db.transaction('meta', 'readonly');
+      const req = tx.objectStore('meta').get(key);
+      req.onsuccess = () => resolve(req.result ? req.result.value : null);
+      req.onerror = () => resolve(null);
+    });
+  }
+
+  // ---------- Playlist ----------
+  let dragSrcIndex = null;
+  function renderPlaylist(){
+    playlistEl.innerHTML = '';
+    let list = queue;
+    if(currentList === 'fav'){
+      list = list.filter(t => favorites.has(t.id));
+    }
+    if(searchQuery){
+      list = list.filter(t => t.name.toLowerCase().includes(searchQuery));
+    }
+
+    if(list.length === 0){
+      const empty = document.createElement('div');
+      empty.className = 'empty-state';
+      if(searchQuery){
+        empty.innerHTML = `چیزی پیدا نشد`;
+      } else if(currentList === 'fav'){
+        empty.innerHTML = `هنوز آهنگی لایک نکردی<br><span style="font-size:12px;opacity:.7">روی قلب کنار آهنگ‌ها بزن</span>`;
+      } else {
+        empty.innerHTML = `آهنگی اضافه نشده<br><label class="add-btn" for="fileInput">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+          افزودن آهنگ</label>`;
+      }
+      playlistEl.appendChild(empty);
+      return;
+    }
+
+    list.forEach((t, displayIdx) => {
+      const realIdx = queue.indexOf(t);
+      const id = t.id;
+      const row = document.createElement('div');
+      row.className = 'track-row' + (realIdx === currentIndex ? ' active' : '');
+      row.draggable = currentList === 'all';
+      row.dataset.idx = realIdx;
+
+      const liked = favorites.has(id);
+      row.innerHTML = `
+        <span class="drag-handle">⋮⋮</span>
+        <span class="track-idx">${(displayIdx+1).toString().padStart(2,'0')}</span>
+        <div class="track-thumb" style="${t.artUrl?`background-image:url(${t.artUrl})`:''}">
+          ${t.artUrl?'':'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>'}
+        </div>
+        <div class="track-meta">
+          <div class="track-name">${t.name}</div>
+          <div class="track-dur">${t.duration ? fmtTime(t.duration) : '—'}</div>
+        </div>
+        <div class="track-actions">
+          <div class="act-btn ${liked?'liked':''}" data-act="like" title="لایک">
+            <svg viewBox="0 0 24 24" fill="${liked?'currentColor':'none'}" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          </div>
+          <div class="act-btn" data-act="edit" title="ویرایش نام">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </div>
+          <div class="act-btn" data-act="delete" title="حذف" style="color:#ff6b8a;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14zM10 11v6M14 11v6"/></svg>
+          </div>
+        </div>`;
+
+      row.addEventListener('click', (e) => {
+        if(e.target.closest('[data-act]')) return;
+        if(realIdx !== currentIndex) loadTrack(realIdx, true);
+      });
+
+      row.querySelector('[data-act="like"]').addEventListener('click', (e) => {
+        e.stopPropagation();
+        if(favorites.has(id)) favorites.delete(id);
+        else favorites.add(id);
+        saveMeta('favorites', Array.from(favorites));
+        renderPlaylist();
+      });
+
+      row.querySelector('[data-act="edit"]').addEventListener('click', (e) => {
+        e.stopPropagation();
+        const newName = prompt('اسم جدید آهنگ:', t.name);
+        if(newName && newName.trim()){
+          t.name = newName.trim();
+          saveTrackMeta(t);
+          if(realIdx === currentIndex) trackTitle.textContent = t.name;
+          renderPlaylist();
+          saveQueueOrder();
+        }
+      });
+
+      row.querySelector('[data-act="delete"]').addEventListener('click', (e) => {
+        e.stopPropagation();
+        if(!confirm('این آهنگ حذف شود؟')) return;
+        removeTrack(realIdx);
+      });
+
+      if(currentList === 'all'){
+        row.addEventListener('dragstart', (e) => { dragSrcIndex = realIdx; e.dataTransfer.effectAllowed = 'move'; });
+        row.addEventListener('dragover', (e) => { e.preventDefault(); row.classList.add('drag-over'); });
+        row.addEventListener('dragleave', () => row.classList.remove('drag-over'));
+        row.addEventListener('drop', (e) => {
+          e.preventDefault(); row.classList.remove('drag-over');
+          if(dragSrcIndex === null || dragSrcIndex === realIdx) return;
+          const item = queue.splice(dragSrcIndex, 1)[0];
+          queue.splice(realIdx, 0, item);
+          if(currentIndex === dragSrcIndex) currentIndex = realIdx;
+          else if(dragSrcIndex < currentIndex && realIdx >= currentIndex) currentIndex--;
+          else if(dragSrcIndex > currentIndex && realIdx <= currentIndex) currentIndex++;
+          dragSrcIndex = null;
+          saveQueueOrder();
+          renderPlaylist();
+        });
+      }
+      playlistEl.appendChild(row);
+    });
+
+    if(currentList === 'all'){
+      const addRow = document.createElement('label');
+      addRow.className = 'track-row'; addRow.setAttribute('for','fileInput'); addRow.style.color='var(--dim)';
+      addRow.innerHTML = `<span class="track-idx">+</span><span class="track-name">افزودن آهنگ دیگر</span>`;
+      playlistEl.appendChild(addRow);
+    }
+  }
+
+  function nextIndex(){
+    if(queue.length === 0) return -1;
+    if(shuffleOn){
+      if(queue.length === 1) return 0;
+      let r; do{ r = Math.floor(Math.random()*queue.length); } while(r === currentIndex);
+      return r;
+    }
+    return (currentIndex + 1) % queue.length;
+  }
+  function prevIndex(){
+    if(queue.length === 0) return -1;
+    if(shuffleOn) return nextIndex();
+    return (currentIndex - 1 + queue.length) % queue.length;
+  }
+
+  async function removeTrack(idx){
+    if(idx < 0 || idx >= queue.length) return;
+    const t = queue[idx];
+    const id = t.id;
+
+    // Revoke object URL to free memory
+    if(t.url && t.url.startsWith('blob:')){
+      try{ URL.revokeObjectURL(t.url); }catch(e){}
+    }
+    if(t.artUrl && t.artUrl.startsWith('blob:')){
+      try{ URL.revokeObjectURL(t.artUrl); }catch(e){}
+    }
+
+    // Remove from favorites
+    favorites.delete(id);
+    saveMeta('favorites', Array.from(favorites));
+
+    // Remove from DB
+    await removeTrackFromDB(id);
+
+    // Adjust currentIndex
+    const wasPlaying = (idx === currentIndex);
+    const wasActive = !getActive().paused;
+
+    queue.splice(idx, 1);
+
+    if(queue.length === 0){
+      currentIndex = -1;
+      getActive().pause();
+      getActive().removeAttribute('src');
+      trackTitle.textContent = 'فایلی انتخاب نشده';
+      trackSub.textContent = '— از —';
+      curTime.textContent = '0:00';
+      durTime.textContent = '0:00';
+      seek.value = 0;
+      discArt.classList.remove('show');
+      disc.classList.remove('playing');
+      if(artBg){ artBg.classList.remove('show'); }
+      playIcon.innerHTML = '<path d="M8 5v14l11-7z"/>';
+      if(miniBar) miniBar.style.display = 'none';
+    } else {
+      if(idx < currentIndex){
+        currentIndex--;
+      } else if(idx === currentIndex){
+        // Was current track → play next (or previous if last)
+        currentIndex = Math.min(idx, queue.length - 1);
+        loadTrack(currentIndex, wasActive);
+      }
+    }
+
+    saveQueueOrder();
+    renderPlaylist();
+  }
+
+  function saveQueueOrder(){
+    const order = queue.map(t => t.id);
+    saveMeta('queueOrder', order);
+  }
+
+  // ---------- Load / Play ----------
+  function getActive(){ return usingA ? audioA : audioB; }
+  function getInactive(){ return usingA ? audioB : audioA; }
+
+  // Only ever fetch a track's raw audio bytes right before it's needed - not for the
+  // whole library at once. This is what actually fixes the "1GB appears every time I
+  // open the app" issue: the old code pulled every song's full audio data into memory
+  // on every launch via getAll(). Now we only keep meta (name/duration/liked) in memory
+  // for the list, and fetch bytes for one track at a time.
+  async function materializeTrack(t){
+    if(t.url) return t; // already loaded this session
+    const rec = await loadTrackData(t.id);
+    if(!rec) return t;
+    const blob = new Blob([rec.data], { type: t._type || 'audio/mpeg' });
+    t.url = URL.createObjectURL(blob);
+    t.file = new File([blob], t.name, { type: t._type || 'audio/mpeg' });
+    return t;
+  }
+
+  // Free the blob/object-URL of tracks that are no longer current/next/prev, so a long
+  // listening session doesn't keep accumulating multiple whole songs in memory.
+  function pruneUnusedBlobs(){
+    const keep = new Set();
+    if(currentIndex >= 0) keep.add(currentIndex);
+    const ni = nextIndex(), pi = prevIndex();
+    if(ni >= 0) keep.add(ni);
+    if(pi >= 0) keep.add(pi);
+    queue.forEach((t, i) => {
+      if(keep.has(i) || !t.url) return;
+      try{ URL.revokeObjectURL(t.url); }catch(e){}
+      t.url = null; t.file = null;
+    });
+  }
+
+  function loadTrack(i, autoplay, isCrossfade=false){
+    if(i < 0 || i >= queue.length) return;
+    currentIndex = i;
+    const t = queue[i];
+    const doFade = isCrossfade && crossfadeOn && queue.length > 1;
+    const target = doFade ? getInactive() : getActive();
+
+    trackTitle.textContent = t.name;
+    trackSub.textContent = `آهنگ ${i+1} از ${queue.length}`;
+    renderPlaylist();
+    discArt.classList.remove('show'); discArt.style.backgroundImage = '';
+    if(artBg) artBg.classList.remove('show');
+    updateMediaSession(t);
+    syncMiniPlayerInfo();
+    updateMiniBarVisibility(getActiveTabName());
+
+    materializeTrack(t).then(() => {
+      if(currentIndex !== i) return; // user skipped away while this was loading
+      if(t.artUrl){
+        discArt.style.backgroundImage = `url(${t.artUrl})`; discArt.classList.add('show');
+        if(artBg){ artBg.style.backgroundImage = `url(${t.artUrl})`; artBg.classList.add('show'); }
+      } else if(t.file){
+        extractCoverArt(t.file).then(url => {
+          if(url && currentIndex === i){
+            t.artUrl = url; discArt.style.backgroundImage = `url(${url})`; discArt.classList.add('show');
+            if(artBg){ artBg.style.backgroundImage = `url(${url})`; artBg.classList.add('show'); }
+            renderPlaylist(); syncMiniPlayerInfo();
+          }
+        });
+      }
+      syncMiniPlayerInfo();
+      target.src = t.url;
+      target.playbackRate = playbackSpeed;
+      target.preservesPitch = true; target.mozPreservesPitch = true; target.webkitPreservesPitch = true;
+
+      if(!autoplay){ pruneUnusedBlobs(); return; }
+
+      if(doFade){
+        // real crossfade: the next track starts playing NOW, underneath the outgoing one
+        crossfading = true;
+        crossfadeTriggered = true;
+        target.volume = 0;
+        target.play().catch(()=>{ crossfading = false; crossfadeTriggered = false; });
+        const fadeTime = 3.4, steps = 42;
+        const fromVol = masterVolume;
+        let step = 0;
+        const iv = setInterval(() => {
+          step++;
+          const p = step / steps;
+          getActive().volume = fromVol * (1 - p);
+          target.volume = fromVol * p;
+          if(step >= steps){
+            clearInterval(iv);
+            getActive().pause();
+            getActive().currentTime = 0;
+            usingA = !usingA;
+            activeAudio = getActive();
+            nextAudio = getInactive();
+            activeAudio.volume = masterVolume;
+            crossfading = false;
+            setTimeout(() => { crossfadeTriggered = false; }, 600);
+            pruneUnusedBlobs();
+          }
+        }, (fadeTime*1000)/steps);
+      } else {
+        crossfading = false;
+        crossfadeTriggered = false;
+        target.volume = masterVolume;
+        target.play().catch(()=>{});
+        if(target !== getActive()){
+          getActive().pause();
+          usingA = !usingA;
+          activeAudio = getActive();
+          nextAudio = getInactive();
+        }
+        pruneUnusedBlobs();
+      }
+    });
+  }
+
+  fileInput.addEventListener('change', async (e) => {
+    const files = Array.from(e.target.files);
+    for(const f of files){
+      const url = URL.createObjectURL(f);
+      const track = {
+        id: genId(), name: f.name.replace(/\.[^/.]+$/, ""),
+        url, duration: null, file: f, artUrl: null, size: f.size, _type: f.type
+      };
+      queue.push(track);
+      saveTrackMeta(track);
+      saveTrackData(track);
+      extractCoverArt(f).then(artUrl => {
+        if(artUrl){
+          track.artUrl = artUrl;
+          renderPlaylist();
+          if(queue[currentIndex] === track){
+            discArt.style.backgroundImage = `url(${artUrl})`; discArt.classList.add('show');
+            if(artBg){ artBg.style.backgroundImage = `url(${artUrl})`; artBg.classList.add('show'); }
+          }
+        }
+      });
+    }
+    saveQueueOrder();
+    renderPlaylist();
+    if(currentIndex === -1 && queue.length > 0) loadTrack(0, false);
+    fileInput.value = '';
+  });
+
+  playBtn.addEventListener('click', () => {
+    if(queue.length === 0){ fileInput.click(); return; }
+    const a = getActive();
+    if(a.paused) a.play().catch(()=>{}); else a.pause();
+  });
+  prevBtn.addEventListener('click', () => { crossfading = false; crossfadeTriggered = false; if(queue.length) loadTrack(prevIndex(), !getActive().paused); });
+  nextBtn.addEventListener('click', () => { crossfading = false; crossfadeTriggered = false; if(queue.length) loadTrack(nextIndex(), !getActive().paused, crossfadeOn); });
+
+  shuffleBtn.addEventListener('click', () => { shuffleOn = !shuffleOn; shuffleBtn.classList.toggle('active', shuffleOn); });
+  repeatBtn.addEventListener('click', () => {
+    repeatMode = (repeatMode + 1) % 3;
+    repeatBtn.classList.toggle('active', repeatMode !== 0);
+    repeatBtn.innerHTML = repeatMode === 2
+      ? '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg><span class="badge">1</span>'
+      : '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg>';
+  });
+
+  function bindAudioEvents(audio){
+    audio.addEventListener('play', () => {
+      if(audio === getActive()){
+        playIcon.innerHTML='<path d="M6 5h4v14H6zm8 0h4v14h-4z"/>';
+        if(miniPlayIcon) miniPlayIcon.innerHTML = playIcon.innerHTML;
+        disc.classList.add('playing');
+        ensureAudioGraph();
+      }
+    });
+    audio.addEventListener('pause', () => {
+      if(audio === getActive()){
+        playIcon.innerHTML='<path d="M8 5v14l11-7z"/>';
+        if(miniPlayIcon) miniPlayIcon.innerHTML = playIcon.innerHTML;
+        disc.classList.remove('playing');
+      }
+    });
+    audio.addEventListener('ended', () => {
+      if(audio !== getActive()) return;
+      if(queue.length === 0) return;
+      // Prevent double-next when a real crossfade already started the next track
+      if(crossfading || crossfadeTriggered) return;
+      if(repeatMode === 2){ loadTrack(currentIndex, true); return; }
+      if(repeatMode === 0 && !shuffleOn && currentIndex === queue.length-1) return;
+      loadTrack(nextIndex(), true, crossfadeOn);
+    });
+    audio.addEventListener('loadedmetadata', () => {
+      if(audio === getActive()){
+        durTime.textContent = fmtTime(audio.duration);
+        seek.max = audio.duration;
+        if(currentIndex >= 0){
+          queue[currentIndex].duration = audio.duration;
+          saveTrackMeta(queue[currentIndex]); // cheap - just the number, not the audio
+          renderPlaylist();
+        }
+      }
+    });
+  }
+  bindAudioEvents(audioA);
+  bindAudioEvents(audioB);
+
+  let seekDragging = false;
+  let crossfading = false;
+  let crossfadeTriggered = false; // prevents ended-handler from firing a second next during crossfade
+  const CROSSFADE_LEAD = 3.5;
+  setInterval(() => {
+    const a = getActive();
+    if(!a || a.paused) return;
+    curTime.textContent = fmtTime(a.currentTime);
+    if(!seekDragging){
+      seek.value = a.currentTime;
+      const pct = a.duration ? (a.currentTime/a.duration*100) : 0;
+      seek.style.background = `linear-gradient(90deg, var(--grad-a), var(--grad-b)) 0/${pct}% 100% no-repeat, rgba(255,255,255,.08)`;
+      if(miniFill) miniFill.style.width = pct + '%';
+    }
+    // Real crossfade / gapless trigger
+    if(!crossfading && !crossfadeTriggered && repeatMode !== 2 && queue.length > 1 &&
+       a.duration && isFinite(a.duration) && a.currentTime > 1.5){
+      const remain = a.duration - a.currentTime;
+      if(crossfadeOn && remain <= CROSSFADE_LEAD){
+        crossfadeTriggered = true;
+        loadTrack(nextIndex(), true, true);
+      } else if(gaplessOn && !crossfadeOn && remain <= 0.12){
+        crossfadeTriggered = true;
+        loadTrack(nextIndex(), true, false);
+      }
+    }
+    if(replayGainOn) updateReplayGainApprox();
+  }, 80);
+
+  seek.addEventListener('mousedown', () => seekDragging = true);
+  seek.addEventListener('touchstart', () => seekDragging = true);
+  seek.addEventListener('input', () => { curTime.textContent = fmtTime(seek.value); });
+  seek.addEventListener('change', () => { getActive().currentTime = +seek.value; seekDragging = false; });
+  volSlider.addEventListener('input', () => {
+    masterVolume = volSlider.value/100;
+    getActive().volume = masterVolume;
+  });
+
+  // ---------- Search ----------
+  let searchQuery = '';
+  const searchInput = $('searchInput');
+  if(searchInput){
+    searchInput.addEventListener('input', () => {
+      searchQuery = searchInput.value.trim().toLowerCase();
+      renderPlaylist();
+    });
+  }
+
+  // ---------- Playback speed ----------
+  let playbackSpeed = 1;
+  const speedSlider = $('speedSlider'), speedVal = $('speedVal');
+  if(speedSlider){
+    speedSlider.addEventListener('input', () => {
+      playbackSpeed = +speedSlider.value;
+      speedVal.textContent = playbackSpeed.toFixed(2) + 'x';
+      [audioA, audioB].forEach(a => {
+        a.playbackRate = playbackSpeed;
+        a.preservesPitch = true; a.mozPreservesPitch = true; a.webkitPreservesPitch = true;
+      });
+      schedulePersist();
+    });
+  }
+
+  // ---------- Crossfade toggle ----------
+  let crossfadeOn = false;
+  function setCrossfade(on){
+    crossfadeOn = on;
+    crossfadeChip.classList.toggle('active', on);
+    switchCrossfade.classList.toggle('on', on);
+  }
+  crossfadeChip.addEventListener('click', () => setCrossfade(!crossfadeOn));
+  switchCrossfade.addEventListener('click', () => setCrossfade(!crossfadeOn));
+
+  // ---------- ID3 cover ----------
+  async function extractCoverArt(file){
+    if(!file) return null;
+    try{
+      const buf = await file.slice(0, 2_500_000).arrayBuffer();
+      const view = new DataView(buf);
+      if(String.fromCharCode(view.getUint8(0),view.getUint8(1),view.getUint8(2)) !== 'ID3') return null;
+      const size = ((view.getUint8(6)&0x7f)<<21)|((view.getUint8(7)&0x7f)<<14)|((view.getUint8(8)&0x7f)<<7)|(view.getUint8(9)&0x7f);
+      let offset = 10; const end = Math.min(10+size, view.byteLength);
+      while(offset < end - 10){
+        const id = String.fromCharCode(view.getUint8(offset),view.getUint8(offset+1),view.getUint8(offset+2),view.getUint8(offset+3));
+        const frameSize = (view.getUint8(offset+4)<<24)|(view.getUint8(offset+5)<<16)|(view.getUint8(offset+6)<<8)|view.getUint8(offset+7);
+        if(frameSize <= 0 || id === '\0\0\0\0') break;
+        if(id === 'APIC'){
+          let p = offset + 10; const textEnc = view.getUint8(p); p += 1;
+          let mime = ''; while(view.getUint8(p) !== 0 && p < offset+10+frameSize){ mime += String.fromCharCode(view.getUint8(p)); p++; } p += 1; p += 1;
+          if(textEnc === 0 || textEnc === 3){ while(view.getUint8(p) !== 0 && p < offset+10+frameSize) p++; p += 1; }
+          else { while(!(view.getUint8(p)===0 && view.getUint8(p+1)===0) && p < offset+10+frameSize) p += 2; p += 2; }
+          const imgData = buf.slice(p, offset+10+frameSize);
+          return URL.createObjectURL(new Blob([imgData], {type: mime || 'image/jpeg'}));
+        }
+        offset += 10 + frameSize;
+      }
+    }catch(e){}
+    return null;
+  }
+
+  function updateMediaSession(t){
+    if('mediaSession' in navigator){
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: t.name, artist: 'نسخه X Player', album: 'DIY Hi-Fi'
+      });
+      navigator.mediaSession.setActionHandler('play', () => getActive().play());
+      navigator.mediaSession.setActionHandler('pause', () => getActive().pause());
+      navigator.mediaSession.setActionHandler('previoustrack', () => prevBtn.click());
+      navigator.mediaSession.setActionHandler('nexttrack', () => nextBtn.click());
+    }
+  }
+
+  // ---------- Web Audio Graph (32-band + advanced) ----------
+  let audioCtx, analyser, sourceA, sourceB, dataArray;
+  let eqFilters = [];
+  let panner, limiter, makeupGain, preampNode;
+  let bassBoostFilter, trebleBoostFilter, vocalBoostFilter, presenceFilter, airFilter;
+  let loudnessLow, loudnessHigh;
+  let delayNode, delayFeedback, delayWet, delayDry;
+  let midGain, sideGain;
+  let is8D=false, panStart=0, loudnessOn=false, eqEnabled=true;
+  let studioOn=false, widenOn=false, punchOn=false, nightOn=false;
+  let widenAmount = 0;
+  let bassBoostOn=false, gaplessOn=false, advancedLimiterOn=false, drcOn=false, replayGainOn=false;
+  let sleepFadeOn=false;
+  let animSpeed = 1.0;
+  let replayGainNode = null, drcNode = null;
+  let currentReplayGain = 1.0;
+  let softClipNode = null;
+
+  // 32-band log spaced
+  const EQ_BANDS = [];
+  (function(){
+    const minF = 20, maxF = 20000;
+    for(let i=0;i<32;i++){
+      const f = minF * Math.pow(maxF/minF, i/31);
+      let label;
+      if(f < 1000) label = Math.round(f).toString();
+      else label = (f/1000).toFixed(f<10000?1:0) + 'k';
+      EQ_BANDS.push({freq: Math.round(f), label});
+    }
+  })();
+
+  // 12-band (classic octave-ish spacing) - independent EQ, only one of the two is
+  // actually applied to the audio at a time (see eqMode / setEqMode below).
+  let eqMode = '32';
+  const EQ_BANDS_12 = [31,62,125,250,500,1000,2000,4000,6000,8000,12000,16000].map(f => ({
+    freq: f, label: f>=1000 ? (f/1000)+'k' : String(f)
+  }));
+  let eqFilters12 = [];
+
+  const PRESETS = {
+    'Flat':        new Array(32).fill(0),
+    'Bass Boost':  [8,8,7,6,5,3,1,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1],
+    'Vocal':       [-2,-2,-1,0,1,2,3,4,5,5,4,3,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    'Treble':      [-2,-2,-1,-1,0,0,0,1,1,2,3,4,5,6,6,7,7,7,6,6,5,5,4,4,3,3,2,2,1,1,1,1],
+    'V-Shape':     [7,6,5,4,2,0,-2,-3,-4,-3,-2,0,1,3,4,5,6,6,6,5,5,4,4,3,3,2,2,1,1,1,0,0],
+    'نسخه X':      [9,8,7,5,3,1,0,-1,0,1,2,3,4,4,3,2,2,2,1,1,1,0,0,0,0,0,0,0,0,0,0,0],
+    'Electronic':  [6,5,4,3,1,0,-1,-2,-1,0,2,3,4,3,2,1,2,3,4,5,5,4,3,2,1,1,0,0,0,0,0,0],
+    'Rock':        [5,4,3,2,1,0,0,1,2,3,3,2,1,0,0,1,2,3,3,2,1,0,0,0,0,0,0,0,0,0,0,0],
+    'Jazz':        [3,2,1,0,0,0,1,2,2,1,0,0,0,1,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    'Classical':   [2,1,0,0,0,0,0,0,0,0,0,0,1,1,2,2,2,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    'Podcast':     [-3,-2,-1,0,1,2,3,4,4,3,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    'Night':       [4,3,2,1,0,-1,-2,-2,-1,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  };
+
+  // Same preset names, resampled for the 12-band EQ (freqs: 31,62,125,250,500,1k,2k,4k,6k,8k,12k,16k)
+  const PRESETS_12 = {
+    'Flat':        new Array(12).fill(0),
+    'Bass Boost':  [8,7,6,3,1,0,-1,-1,-1,-1,-1,-1],
+    'Vocal':       [-2,-1,0,2,4,5,4,2,0,0,0,0],
+    'Treble':      [-2,-1,0,0,1,2,4,6,7,6,3,1],
+    'V-Shape':     [7,5,2,-2,-4,-2,1,4,6,5,2,0],
+    'نسخه X':      [9,7,4,1,0,0,2,4,3,2,1,0],
+    'Electronic':  [6,4,1,-1,-1,0,3,4,2,3,5,1],
+    'Rock':        [5,3,1,0,0,1,3,2,0,2,3,0],
+    'Jazz':        [3,1,0,0,1,2,1,0,1,2,1,0],
+    'Classical':   [2,0,0,0,0,0,1,2,2,1,0,0],
+    'Podcast':     [-3,-1,0,1,3,4,2,0,0,0,0,0],
+    'Night':       [4,2,0,-1,-2,-1,0,1,0,0,0,0],
+  };
+
+  function buildEqUI(){
+    const bandsEl = $('eqBands');
+    bandsEl.innerHTML = '';
+    EQ_BANDS.forEach((b,i) => {
+      const col = document.createElement('div'); col.className='eq-band';
+      col.innerHTML = `<span class="eq-val" id="eqVal${i}">0</span>
+        <div class="fader-track" id="fader${i}" data-idx="${i}">
+          <div class="fader-mid"></div>
+          <div class="fader-fill" id="faderFill${i}"></div>
+          <div class="fader-thumb" id="faderThumb${i}"></div>
+        </div>
+        <span class="eq-label">${b.label}</span>`;
+      bandsEl.appendChild(col);
+    });
+    EQ_BANDS.forEach((b,i) => setupFaderDrag(i));
+    setEqValues(PRESETS['Flat']);
+
+    const bandsEl12 = $('eqBands12');
+    bandsEl12.innerHTML = '';
+    EQ_BANDS_12.forEach((b,i) => {
+      const col = document.createElement('div'); col.className='eq-band';
+      col.innerHTML = `<span class="eq-val" id="eqVal12_${i}">0</span>
+        <div class="fader-track" id="fader12_${i}" data-idx="${i}">
+          <div class="fader-mid"></div>
+          <div class="fader-fill" id="faderFill12_${i}"></div>
+          <div class="fader-thumb" id="faderThumb12_${i}"></div>
+        </div>
+        <span class="eq-label">${b.label}</span>`;
+      bandsEl12.appendChild(col);
+    });
+    EQ_BANDS_12.forEach((b,i) => setupFaderDrag12(i));
+    setEqValues12(PRESETS_12['Flat']);
+
+    const presetRow = $('presetRow'); presetRow.innerHTML = '';
+    Object.keys(PRESETS).forEach(name => {
+      const chip = document.createElement('div');
+      chip.className = 'preset-chip' + (name==='Flat'?' active':'') + (name==='نسخه X'?' nesx':'');
+      chip.textContent = name;
+      chip.addEventListener('click', () => applyPreset(name));
+      presetRow.appendChild(chip);
+    });
+    const saveChip = document.createElement('div');
+    saveChip.className = 'preset-chip save-chip'; saveChip.textContent = '+ ذخیره';
+    saveChip.addEventListener('click', saveCustomPreset);
+    presetRow.appendChild(saveChip);
+  }
+
+  function setEqMode(mode){
+    eqMode = mode;
+    $('eqMode32Btn').classList.toggle('active', mode==='32');
+    $('eqMode12Btn').classList.toggle('active', mode==='12');
+    $('eqBands').style.display = mode==='32' ? '' : 'none';
+    $('eqBands12').style.display = mode==='12' ? '' : 'none';
+    if(!audioCtx) return;
+    EQ_BANDS.forEach((_,i) => {
+      const v = +($('eqVal'+i)?.textContent.replace('+','') || 0);
+      if(eqFilters[i]) eqFilters[i].gain.setTargetAtTime(mode==='32' && eqEnabled ? v : 0, audioCtx.currentTime, 0.02);
+    });
+    EQ_BANDS_12.forEach((_,i) => {
+      const v = +($('eqVal12_'+i)?.textContent.replace('+','') || 0);
+      if(eqFilters12[i]) eqFilters12[i].gain.setTargetAtTime(mode==='12' && eqEnabled ? v : 0, audioCtx.currentTime, 0.02);
+    });
+  }
+  $('eqMode32Btn').addEventListener('click', () => setEqMode('32'));
+  $('eqMode12Btn').addEventListener('click', () => setEqMode('12'));
+
+  function faderValueFromClientY(track, clientY){
+    const rect = track.getBoundingClientRect();
+    let frac = 1 - (clientY - rect.top) / rect.height;
+    frac = Math.max(0, Math.min(1, frac));
+    return Math.round((frac * 24 - 12));
+  }
+  function setFaderVisual(i, val){
+    const pct = ((val + 12) / 24) * 100;
+    const fill = $('faderFill'+i), thumb = $('faderThumb'+i), valEl = $('eqVal'+i);
+    if(!fill) return;
+    fill.style.height = Math.abs(pct-50) + '%';
+    fill.style.bottom = pct >= 50 ? '50%' : (pct)+'%';
+    thumb.style.bottom = `calc(${pct}% - 7px)`;
+    valEl.textContent = (val>0?'+':'')+val;
+  }
+  function setupFaderDrag(i){
+    const track = $('fader'+i);
+    if(!track) return;
+    let dragging = false;
+    function move(clientY){
+      const val = faderValueFromClientY(track, clientY);
+      setFaderVisual(i, val);
+      applyGain(i, val);
+      document.querySelectorAll('.preset-chip').forEach(c=>c.classList.remove('active'));
+    }
+    track.addEventListener('pointerdown', (e) => { ensureAudioGraph(); dragging = true; track.setPointerCapture(e.pointerId); move(e.clientY); });
+    track.addEventListener('pointermove', (e) => { if(dragging) move(e.clientY); });
+    track.addEventListener('pointerup', () => dragging = false);
+    track.addEventListener('pointercancel', () => dragging = false);
+  }
+  function applyGain(i, val){
+    if(eqFilters[i] && eqEnabled && eqMode==='32' && audioCtx){
+      eqFilters[i].gain.setTargetAtTime(val, audioCtx.currentTime, 0.012);
+    }
+  }
+  function setEqValues(values){
+    values.forEach((val,i) => { if(i<32){ setFaderVisual(i,val); applyGain(i,val); } });
+  }
+  function setFaderVisual12(i, val){
+    const pct = ((val + 12) / 24) * 100;
+    const fill = $('faderFill12_'+i), thumb = $('faderThumb12_'+i), valEl = $('eqVal12_'+i);
+    if(!fill) return;
+    fill.style.height = Math.abs(pct-50) + '%';
+    fill.style.bottom = pct >= 50 ? '50%' : (pct)+'%';
+    thumb.style.bottom = `calc(${pct}% - 7px)`;
+    valEl.textContent = (val>0?'+':'')+val;
+  }
+  function setupFaderDrag12(i){
+    const track = $('fader12_'+i);
+    if(!track) return;
+    let dragging = false;
+    function move(clientY){
+      const rect = track.getBoundingClientRect();
+      let frac = 1 - (clientY - rect.top) / rect.height;
+      frac = Math.max(0, Math.min(1, frac));
+      const val = Math.round(frac * 24 - 12);
+      setFaderVisual12(i, val);
+      applyGain12(i, val);
+      document.querySelectorAll('.preset-chip').forEach(c=>c.classList.remove('active'));
+    }
+    track.addEventListener('pointerdown', (e) => { ensureAudioGraph(); dragging = true; track.setPointerCapture(e.pointerId); move(e.clientY); });
+    track.addEventListener('pointermove', (e) => { if(dragging) move(e.clientY); });
+    track.addEventListener('pointerup', () => dragging = false);
+    track.addEventListener('pointercancel', () => dragging = false);
+  }
+  function applyGain12(i, val){
+    if(eqFilters12[i] && eqEnabled && eqMode==='12' && audioCtx){
+      eqFilters12[i].gain.setTargetAtTime(val, audioCtx.currentTime, 0.012);
+    }
+  }
+  function setEqValues12(values){
+    values.forEach((val,i) => { if(i<12){ setFaderVisual12(i,val); applyGain12(i,val); } });
+  }
+  function applyPreset(name){
+    ensureAudioGraph();
+    document.querySelectorAll('.preset-chip').forEach(c=>c.classList.toggle('active', c.textContent===name));
+    if(eqMode==='32'){ const vals = PRESETS[name]; if(vals) setEqValues(vals); }
+    else { const vals = PRESETS_12[name]; if(vals) setEqValues12(vals); }
+    if(typeof schedulePersist === 'function') schedulePersist();
+  }
+  function saveCustomPreset(){
+    const name = prompt('اسم پریست:');
+    if(!name) return;
+    PRESETS[name] = EQ_BANDS.map((_,i) => +($('eqVal'+i)?.textContent.replace('+','') || 0));
+    PRESETS_12[name] = EQ_BANDS_12.map((_,i) => +($('eqVal12_'+i)?.textContent.replace('+','') || 0));
+    buildEqUI();
+    setEqMode(eqMode);
+    applyPreset(name);
+  }
+
+  eqBypassPill.addEventListener('click', toggleEqBypass);
+  eqBypassLabel.addEventListener('click', toggleEqBypass);
+  if(abCompareChip) abCompareChip.addEventListener('click', toggleEqBypass);
+  function toggleEqBypass(){
+    ensureAudioGraph();
+    eqEnabled = !eqEnabled;
+    eqBypassPill.classList.toggle('on', eqEnabled);
+    eqBypassPill.querySelector('span:last-child').textContent = eqEnabled ? 'EQ فعال' : 'EQ خاموش';
+    eqBypassLabel.textContent = eqEnabled ? 'فعال' : 'خاموش';
+    abCompareChip && abCompareChip.classList.toggle('active', !eqEnabled);
+    EQ_BANDS.forEach((_,i) => {
+      const val = (eqEnabled && eqMode==='32') ? +($('eqVal'+i)?.textContent.replace('+','') || 0) : 0;
+      if(eqFilters[i]) eqFilters[i].gain.setTargetAtTime(val, audioCtx.currentTime, 0.02);
+    });
+    EQ_BANDS_12.forEach((_,i) => {
+      const val = (eqEnabled && eqMode==='12') ? +($('eqVal12_'+i)?.textContent.replace('+','') || 0) : 0;
+      if(eqFilters12[i]) eqFilters12[i].gain.setTargetAtTime(val, audioCtx.currentTime, 0.02);
+    });
+  }
+
+  function dbToGain(db){ return Math.pow(10, db/20); }
+
+  preampSlider.addEventListener('input', () => {
+    ensureAudioGraph();
+    const v = +preampSlider.value; preampVal.textContent = (v>0?'+':'')+v+'dB';
+    if(preampNode) preampNode.gain.setTargetAtTime(dbToGain(v), audioCtx.currentTime, 0.02);
+  });
+  balanceSlider.addEventListener('input', () => {
+    ensureAudioGraph();
+    const v = +balanceSlider.value;
+    balanceVal.textContent = v===0 ? 'مرکز' : (v<0 ? `چپ ${Math.abs(v)}%` : `راست ${v}%`);
+    if(panner && !is8D) panner.pan.setTargetAtTime(v/100, audioCtx.currentTime, 0.02);
+  });
+  widenSlider.addEventListener('input', () => {
+    ensureAudioGraph();
+    widenAmount = +widenSlider.value / 100;
+    widenVal.textContent = Math.round(widenAmount*100) + '%';
+    applyWiden();
+  });
+
+  function setLoudness(on){
+    ensureAudioGraph();
+    loudnessOn = on;
+    loudnessChip.classList.toggle('active', on);
+    switchLoudness.classList.toggle('on', on);
+    if(loudnessLow && loudnessHigh){
+      loudnessLow.gain.setTargetAtTime(on ? 7.5 : 0, audioCtx.currentTime, 0.05);
+      loudnessHigh.gain.setTargetAtTime(on ? 4.5 : 0, audioCtx.currentTime, 0.05);
+    }
+  }
+  loudnessChip.addEventListener('click', () => setLoudness(!loudnessOn));
+  switchLoudness.addEventListener('click', () => setLoudness(!loudnessOn));
+
+  function set8D(on){
+    ensureAudioGraph();
+    is8D = on; mode8dChip.classList.toggle('active', on); switch8d.classList.toggle('on', on);
+    if(on && audioCtx) panStart = audioCtx.currentTime;
+    if(!on && panner) panner.pan.value = balanceSlider.value/100;
+  }
+  mode8dChip.addEventListener('click', () => set8D(!is8D));
+  switch8d.addEventListener('click', () => set8D(!is8D));
+
+  function setWiden(on){
+    ensureAudioGraph();
+    widenOn = on;
+    widenChip.classList.toggle('active', on);
+    switchWiden.classList.toggle('on', on);
+    if(on && widenAmount < 0.35){ widenSlider.value = 55; widenSlider.dispatchEvent(new Event('input')); }
+    applyWiden();
+  }
+  widenChip.addEventListener('click', () => setWiden(!widenOn));
+  switchWiden.addEventListener('click', () => setWiden(!widenOn));
+
+  function applyWiden(){
+    if(!midGain || !sideGain || !audioCtx) return;
+    const amt = widenOn ? widenAmount : 0;
+    // Classic mid-side widen (keeps perceived loudness roughly stable)
+    sideGain.gain.setTargetAtTime(1 + amt * 1.7, audioCtx.currentTime, 0.04);
+    midGain.gain.setTargetAtTime(1 - amt * 0.25, audioCtx.currentTime, 0.04);
+  }
+
+  // ---------- New Audio Feature Toggles ----------
+  function setBassBoost(on){
+    ensureAudioGraph();
+    bassBoostOn = on;
+    if(switchBassBoost) switchBassBoost.classList.toggle('on', on);
+    if(bassBoostFilter){
+      const base = +bassBoostSlider.value;
+      const target = on ? Math.max(base, 8) : base;
+      bassBoostFilter.gain.setTargetAtTime(target, audioCtx.currentTime, 0.04);
+    }
+  }
+  if(switchBassBoost) switchBassBoost.addEventListener('click', () => { setBassBoost(!bassBoostOn); schedulePersist(); });
+
+  function setGapless(on){
+    gaplessOn = on;
+    if(switchGapless) switchGapless.classList.toggle('on', on);
+  }
+  if(switchGapless) switchGapless.addEventListener('click', () => { setGapless(!gaplessOn); schedulePersist(); });
+
+  function setAdvancedLimiter(on){
+    ensureAudioGraph();
+    advancedLimiterOn = on;
+    if(switchLimiter) switchLimiter.classList.toggle('on', on);
+    if(limiter){
+      if(on){
+        limiter.threshold.setTargetAtTime(-4.5, audioCtx.currentTime, 0.05);
+        limiter.ratio.setTargetAtTime(20, audioCtx.currentTime, 0.05);
+        limiter.knee.setTargetAtTime(1, audioCtx.currentTime, 0.05);
+        limiter.attack.setTargetAtTime(0.0008, audioCtx.currentTime, 0.05);
+        limiter.release.setTargetAtTime(0.08, audioCtx.currentTime, 0.05);
+        if(makeupGain) makeupGain.gain.setTargetAtTime(0.88, audioCtx.currentTime, 0.05);
+      } else {
+        limiter.threshold.setTargetAtTime(-9, audioCtx.currentTime, 0.05);
+        limiter.ratio.setTargetAtTime(12, audioCtx.currentTime, 0.05);
+        limiter.knee.setTargetAtTime(4, audioCtx.currentTime, 0.05);
+        limiter.attack.setTargetAtTime(0.001, audioCtx.currentTime, 0.05);
+        limiter.release.setTargetAtTime(0.12, audioCtx.currentTime, 0.05);
+        if(makeupGain && !studioOn) makeupGain.gain.setTargetAtTime(0.78, audioCtx.currentTime, 0.05);
+      }
+    }
+  }
+  if(switchLimiter) switchLimiter.addEventListener('click', () => { setAdvancedLimiter(!advancedLimiterOn); schedulePersist(); });
+
+  function setDRC(on){
+    ensureAudioGraph();
+    drcOn = on;
+    if(switchDRC) switchDRC.classList.toggle('on', on);
+    if(drcNode){
+      if(on){
+        drcNode.threshold.setTargetAtTime(-18, audioCtx.currentTime, 0.06);
+        drcNode.ratio.setTargetAtTime(2.8, audioCtx.currentTime, 0.06);
+      } else {
+        drcNode.threshold.setTargetAtTime(0, audioCtx.currentTime, 0.06);
+        drcNode.ratio.setTargetAtTime(1, audioCtx.currentTime, 0.06);
+      }
+    }
+  }
+  if(switchDRC) switchDRC.addEventListener('click', () => { setDRC(!drcOn); schedulePersist(); });
+
+  function setReplayGain(on){
+    ensureAudioGraph();
+    replayGainOn = on;
+    if(switchReplayGain) switchReplayGain.classList.toggle('on', on);
+    if(!on && replayGainNode){
+      currentReplayGain = 1;
+      replayGainNode.gain.setTargetAtTime(1, audioCtx.currentTime, 0.08);
+    }
+  }
+  if(switchReplayGain) switchReplayGain.addEventListener('click', () => { setReplayGain(!replayGainOn); schedulePersist(); });
+
+  let lastRgUpdate = 0;
+  function updateReplayGainApprox(){
+    if(!replayGainOn || !analyser || !replayGainNode || !audioCtx) return;
+    const now = performance.now();
+    if(now - lastRgUpdate < 1800) return;
+    lastRgUpdate = now;
+    const td = new Uint8Array(analyser.fftSize);
+    analyser.getByteTimeDomainData(td);
+    let peak = 0;
+    for(let i=0;i<td.length;i++){
+      const v = Math.abs(td[i] - 128) / 128;
+      if(v > peak) peak = v;
+    }
+    if(peak < 0.02) return;
+    const targetPeak = 0.89;
+    let g = targetPeak / peak;
+    g = Math.max(0.55, Math.min(1.6, g));
+    currentReplayGain = currentReplayGain * 0.7 + g * 0.3;
+    replayGainNode.gain.setTargetAtTime(currentReplayGain, audioCtx.currentTime, 0.25);
+  }
+
+
+  function setPunch(on){
+    ensureAudioGraph();
+    punchOn = on; punchChip.classList.toggle('active', on);
+    if(bassBoostFilter){
+      bassBoostFilter.gain.setTargetAtTime(on ? Math.max(+bassBoostSlider.value, 7) : +bassBoostSlider.value, audioCtx.currentTime, 0.04);
+    }
+  }
+  punchChip.addEventListener('click', () => setPunch(!punchOn));
+
+  function setNight(on){
+    ensureAudioGraph();
+    nightOn = on; nightChip.classList.toggle('active', on);
+    if(on) applyPreset('Night');
+  }
+  nightChip.addEventListener('click', () => setNight(!nightOn));
+
+  bassBoostSlider.addEventListener('input', () => {
+    ensureAudioGraph();
+    const v = +bassBoostSlider.value; bassBoostVal.textContent = v+'dB';
+    if(bassBoostFilter && !punchOn){
+      const target = bassBoostOn ? Math.max(v, 8) : v;
+      bassBoostFilter.gain.setTargetAtTime(target, audioCtx.currentTime, 0.03);
+    }
+  });
+  trebleBoostSlider.addEventListener('input', () => {
+    ensureAudioGraph();
+    const v = +trebleBoostSlider.value; trebleBoostVal.textContent = v+'dB';
+    if(trebleBoostFilter) trebleBoostFilter.gain.setTargetAtTime(v, audioCtx.currentTime, 0.03);
+  });
+  vocalBoostSlider.addEventListener('input', () => {
+    ensureAudioGraph();
+    const v = +vocalBoostSlider.value; vocalBoostVal.textContent = v+'dB';
+    if(vocalBoostFilter) vocalBoostFilter.gain.setTargetAtTime(v, audioCtx.currentTime, 0.03);
+  });
+  presenceSlider.addEventListener('input', () => {
+    ensureAudioGraph();
+    const v = +presenceSlider.value; presenceVal.textContent = v+'dB';
+    if(presenceFilter) presenceFilter.gain.setTargetAtTime(v, audioCtx.currentTime, 0.03);
+  });
+  airSlider.addEventListener('input', () => {
+    ensureAudioGraph();
+    const v = +airSlider.value; airVal.textContent = v+'dB';
+    if(airFilter) airFilter.gain.setTargetAtTime(v, audioCtx.currentTime, 0.03);
+  });
+
+  function setStudio(on){
+    ensureAudioGraph();
+    studioOn = on; studioChip.classList.toggle('active', on);
+    if(on){
+      applyPreset('Flat');
+      bassBoostSlider.value = 0; bassBoostSlider.dispatchEvent(new Event('input'));
+      trebleBoostSlider.value = 0; trebleBoostSlider.dispatchEvent(new Event('input'));
+      vocalBoostSlider.value = 0; vocalBoostSlider.dispatchEvent(new Event('input'));
+      presenceSlider.value = 0; presenceSlider.dispatchEvent(new Event('input'));
+      airSlider.value = 0; airSlider.dispatchEvent(new Event('input'));
+      setLoudness(false); set8D(false); setWiden(false); setPunch(false);
+      preampSlider.value = -1; preampSlider.dispatchEvent(new Event('input'));
+      // strong studio limiter + light echo
+      if(limiter){
+        limiter.threshold.setTargetAtTime(-6, audioCtx.currentTime, 0.05);
+        limiter.ratio.setTargetAtTime(4, audioCtx.currentTime, 0.05);
+        limiter.attack.setTargetAtTime(0.003, audioCtx.currentTime, 0.05);
+        limiter.release.setTargetAtTime(0.15, audioCtx.currentTime, 0.05);
+      }
+      if(makeupGain) makeupGain.gain.setTargetAtTime(0.92, audioCtx.currentTime, 0.05);
+      if(delayWet) delayWet.gain.setTargetAtTime(0.18, audioCtx.currentTime, 0.08);
+      if(delayFeedback) delayFeedback.gain.setTargetAtTime(0.28, audioCtx.currentTime, 0.08);
+    } else {
+      if(limiter){
+        limiter.threshold.setTargetAtTime(-9, audioCtx.currentTime, 0.05);
+        limiter.ratio.setTargetAtTime(12, audioCtx.currentTime, 0.05);
+        limiter.attack.setTargetAtTime(0.001, audioCtx.currentTime, 0.05);
+        limiter.release.setTargetAtTime(0.12, audioCtx.currentTime, 0.05);
+      }
+      if(makeupGain) makeupGain.gain.setTargetAtTime(0.78, audioCtx.currentTime, 0.05);
+      if(delayWet) delayWet.gain.setTargetAtTime(0, audioCtx.currentTime, 0.08);
+      if(delayFeedback) delayFeedback.gain.setTargetAtTime(0, audioCtx.currentTime, 0.08);
+    }
+  }
+  studioChip.addEventListener('click', () => setStudio(!studioOn));
+
+  resetBtn.addEventListener('click', () => {
+    ensureAudioGraph();
+    setEqValues(PRESETS['Flat']);
+    setEqValues12(PRESETS_12['Flat']);
+    setEqMode('32');
+    document.querySelectorAll('.preset-chip').forEach(c=>c.classList.toggle('active', c.textContent==='Flat'));
+    [bassBoostSlider, trebleBoostSlider, vocalBoostSlider, presenceSlider, airSlider].forEach(s => {
+      s.value = 0; s.dispatchEvent(new Event('input'));
+    });
+    preampSlider.value = 0; preampSlider.dispatchEvent(new Event('input'));
+    balanceSlider.value = 0; balanceSlider.dispatchEvent(new Event('input'));
+    widenSlider.value = 0; widenSlider.dispatchEvent(new Event('input'));
+    if(!eqEnabled) toggleEqBypass();
+    setStudio(false); setPunch(false); setNight(false);
+    if(typeof schedulePersist === 'function') schedulePersist();
+  });
+
+  function makeSoftClipCurve(amount=1.6){
+    const n=8192; const curve=new Float32Array(n);
+    for(let i=0;i<n;i++){
+      const x = (i/(n-1))*2 - 1;
+      curve[i] = Math.tanh(x * amount) / Math.tanh(amount);
+    }
+    return curve;
+  }
+
+  function setupAudioGraph(){
+    if(audioCtx) return;
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    sourceA = audioCtx.createMediaElementSource(audioA);
+    sourceB = audioCtx.createMediaElementSource(audioB);
+
+    // merge the two sources
+    const mergeSources = audioCtx.createGain();
+    sourceA.connect(mergeSources);
+    sourceB.connect(mergeSources);
+
+    preampNode = audioCtx.createGain(); preampNode.gain.value = 1;
+
+    // 32-band EQ
+    eqFilters = EQ_BANDS.map((b,i) => {
+      const f = audioCtx.createBiquadFilter();
+      if(i === 0) f.type = 'lowshelf';
+      else if(i === EQ_BANDS.length-1) f.type = 'highshelf';
+      else f.type = 'peaking';
+      f.frequency.value = b.freq;
+      f.Q.value = 1.15;
+      f.gain.value = 0;
+      return f;
+    });
+
+    // 12-band EQ (independent filter chain, series after the 32-band one; only the
+    // active mode's gains are non-zero at any time - see setEqMode)
+    eqFilters12 = EQ_BANDS_12.map((b,i) => {
+      const f = audioCtx.createBiquadFilter();
+      if(i === 0) f.type = 'lowshelf';
+      else if(i === EQ_BANDS_12.length-1) f.type = 'highshelf';
+      else f.type = 'peaking';
+      f.frequency.value = b.freq;
+      f.Q.value = 1.0;
+      f.gain.value = 0;
+      return f;
+    });
+
+    // Loudness (better approximation)
+    loudnessLow = audioCtx.createBiquadFilter();
+    loudnessLow.type = 'lowshelf'; loudnessLow.frequency.value = 120; loudnessLow.gain.value = 0;
+    loudnessHigh = audioCtx.createBiquadFilter();
+    loudnessHigh.type = 'highshelf'; loudnessHigh.frequency.value = 6500; loudnessHigh.gain.value = 0;
+
+    // Tone controls
+    bassBoostFilter = audioCtx.createBiquadFilter();
+    bassBoostFilter.type = 'lowshelf'; bassBoostFilter.frequency.value = 95; bassBoostFilter.gain.value = 0;
+    trebleBoostFilter = audioCtx.createBiquadFilter();
+    trebleBoostFilter.type = 'highshelf'; trebleBoostFilter.frequency.value = 7500; trebleBoostFilter.gain.value = 0;
+    vocalBoostFilter = audioCtx.createBiquadFilter();
+    vocalBoostFilter.type = 'peaking'; vocalBoostFilter.frequency.value = 2400; vocalBoostFilter.Q.value = 1.1; vocalBoostFilter.gain.value = 0;
+    presenceFilter = audioCtx.createBiquadFilter();
+    presenceFilter.type = 'peaking'; presenceFilter.frequency.value = 4200; presenceFilter.Q.value = 1.0; presenceFilter.gain.value = 0;
+    airFilter = audioCtx.createBiquadFilter();
+    airFilter.type = 'highshelf'; airFilter.frequency.value = 11000; airFilter.gain.value = 0;
+
+    // ========== Proper Mid-Side Stereo Widen ==========
+    const msSplitter = audioCtx.createChannelSplitter(2);
+    const msMerger = audioCtx.createChannelMerger(2);
+
+    midGain = audioCtx.createGain(); midGain.gain.value = 1;
+    sideGain = audioCtx.createGain(); sideGain.gain.value = 1;
+
+    // mid = 0.5*(L + R)
+    const leftToMid = audioCtx.createGain(); leftToMid.gain.value = 0.5;
+    const rightToMid = audioCtx.createGain(); rightToMid.gain.value = 0.5;
+    // side = 0.5*(L - R)
+    const leftToSide = audioCtx.createGain(); leftToSide.gain.value = 0.5;
+    const rightToSide = audioCtx.createGain(); rightToSide.gain.value = -0.5;
+
+    msSplitter.connect(leftToMid, 0);
+    msSplitter.connect(rightToMid, 1);
+    leftToMid.connect(midGain);
+    rightToMid.connect(midGain);
+
+    msSplitter.connect(leftToSide, 0);
+    msSplitter.connect(rightToSide, 1);
+    leftToSide.connect(sideGain);
+    rightToSide.connect(sideGain);
+
+    // Reconstruct: L = mid + side , R = mid - side
+    const sideInv = audioCtx.createGain(); sideInv.gain.value = -1;
+    midGain.connect(msMerger, 0, 0);
+    midGain.connect(msMerger, 0, 1);
+    sideGain.connect(msMerger, 0, 0);
+    sideGain.connect(sideInv);
+    sideInv.connect(msMerger, 0, 1);
+
+    // Echo / Delay for Studio mode
+    delayNode = audioCtx.createDelay(1.0);
+    delayNode.delayTime.value = 0.22;
+    delayFeedback = audioCtx.createGain(); delayFeedback.gain.value = 0;
+    delayWet = audioCtx.createGain(); delayWet.gain.value = 0;
+    delayDry = audioCtx.createGain(); delayDry.gain.value = 1;
+    delayNode.connect(delayFeedback);
+    delayFeedback.connect(delayNode);
+    delayNode.connect(delayWet);
+
+    panner = audioCtx.createStereoPanner();
+
+    // Strong limiter + soft clip for protection
+    limiter = audioCtx.createDynamicsCompressor();
+    limiter.threshold.value = -9;
+    limiter.knee.value = 4;
+    limiter.ratio.value = 12;
+    limiter.attack.value = 0.001;
+    limiter.release.value = 0.12;
+
+    // Dynamic Range compressor (mild glue)
+    drcNode = audioCtx.createDynamicsCompressor();
+    drcNode.threshold.value = 0; // off by default
+    drcNode.knee.value = 12;
+    drcNode.ratio.value = 1;
+    drcNode.attack.value = 0.02;
+    drcNode.release.value = 0.25;
+
+    makeupGain = audioCtx.createGain(); makeupGain.gain.value = 0.78;
+
+    // ReplayGain approximate gain node
+    replayGainNode = audioCtx.createGain();
+    replayGainNode.gain.value = 1;
+
+    softClipNode = audioCtx.createWaveShaper();
+    softClipNode.curve = makeSoftClipCurve(1.55);
+    softClipNode.oversample = '4x';
+
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 256;
+    dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+    // ========== Connect the full chain ==========
+    let node = mergeSources;
+    node.connect(preampNode); node = preampNode;
+    eqFilters.forEach(f => { node.connect(f); node = f; });
+    eqFilters12.forEach(f => { node.connect(f); node = f; });
+    node.connect(bassBoostFilter); node = bassBoostFilter;
+    node.connect(trebleBoostFilter); node = trebleBoostFilter;
+    node.connect(vocalBoostFilter); node = vocalBoostFilter;
+    node.connect(presenceFilter); node = presenceFilter;
+    node.connect(airFilter); node = airFilter;
+    node.connect(loudnessLow); node = loudnessLow;
+    node.connect(loudnessHigh); node = loudnessHigh;
+
+    // Mid-Side Widen stage
+    node.connect(msSplitter);
+    // msMerger is the widened signal
+
+    // Dry + Delay (Studio)
+    msMerger.connect(delayDry);
+    msMerger.connect(delayNode);
+    delayDry.connect(panner);
+    delayWet.connect(panner);
+
+    panner.connect(makeupGain);
+    makeupGain.connect(drcNode);
+    drcNode.connect(limiter);
+    limiter.connect(replayGainNode);
+    replayGainNode.connect(softClipNode);
+    softClipNode.connect(analyser);
+    analyser.connect(audioCtx.destination);
+
+    panStart = audioCtx.currentTime;
+    syncAllNodesToUI();
+    applyWiden(); // apply current widen amount
+  }
+
+  function ensureAudioGraph(){
+    if(!audioCtx) setupAudioGraph();
+    if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  }
+  function syncAllNodesToUI(){
+    EQ_BANDS.forEach((_,i) => {
+      const v = +($('eqVal'+i)?.textContent.replace('+','') || 0);
+      applyGain(i, v);
+    });
+    EQ_BANDS_12.forEach((_,i) => {
+      const v = +($('eqVal12_'+i)?.textContent.replace('+','') || 0);
+      applyGain12(i, v);
+    });
+    if(preampNode) preampNode.gain.value = dbToGain(+preampSlider.value);
+    if(panner) panner.pan.value = +balanceSlider.value/100;
+    if(bassBoostFilter) bassBoostFilter.gain.value = +bassBoostSlider.value;
+    if(trebleBoostFilter) trebleBoostFilter.gain.value = +trebleBoostSlider.value;
+    if(vocalBoostFilter) vocalBoostFilter.gain.value = +vocalBoostSlider.value;
+    if(presenceFilter) presenceFilter.gain.value = +presenceSlider.value;
+    if(airFilter) airFilter.gain.value = +airSlider.value;
+    if(loudnessLow) loudnessLow.gain.value = loudnessOn ? 7.5 : 0;
+    if(loudnessHigh) loudnessHigh.gain.value = loudnessOn ? 4.5 : 0;
+  }
+
+  // ---------- Sleep timer (improved) ----------
+  const SLEEP_OPTIONS = [15,30,45,60,90];
+  let sleepTimeout = null;
+  let sleepEndTime = 0;
+  let sleepFadeInterval = null;
+  const sleepRow = $('sleepRow');
+  function clearSleep(){
+    if(sleepTimeout){ clearTimeout(sleepTimeout); sleepTimeout=null; }
+    if(sleepFadeInterval){ clearInterval(sleepFadeInterval); sleepFadeInterval=null; }
+    sleepEndTime = 0;
+    if(sleepRemainingEl) sleepRemainingEl.textContent = '';
+    document.querySelectorAll('.sleep-chip').forEach(c=>c.classList.remove('active'));
+  }
+  function updateSleepRemaining(){
+    if(!sleepEndTime){ if(sleepRemainingEl) sleepRemainingEl.textContent=''; return; }
+    const left = Math.max(0, Math.round((sleepEndTime - Date.now())/1000));
+    if(left <= 0){ if(sleepRemainingEl) sleepRemainingEl.textContent=''; return; }
+    const m = Math.floor(left/60), s = left%60;
+    if(sleepRemainingEl) sleepRemainingEl.textContent = m+':'+(s<10?'0':'')+s+' مانده';
+  }
+  setInterval(updateSleepRemaining, 1000);
+
+  SLEEP_OPTIONS.forEach(min => {
+    const chip = document.createElement('div'); chip.className='sleep-chip'; chip.textContent = min+' دقیقه';
+    chip.addEventListener('click', () => {
+      const wasActive = chip.classList.contains('active');
+      clearSleep();
+      if(!wasActive){
+        chip.classList.add('active');
+        sleepEndTime = Date.now() + min*60*1000;
+        updateSleepRemaining();
+        const startFade = sleepFadeOn ? Math.max(0, min*60*1000 - 28000) : min*60*1000;
+        sleepTimeout = setTimeout(() => {
+          if(sleepFadeOn){
+            const a = getActive();
+            const startVol = a.volume;
+            let step = 0;
+            sleepFadeInterval = setInterval(() => {
+              step++;
+              a.volume = startVol * (1 - step/25);
+              if(step >= 25){
+                clearInterval(sleepFadeInterval); sleepFadeInterval=null;
+                a.pause(); a.volume = masterVolume;
+                clearSleep();
+              }
+            }, 1000);
+          } else {
+            getActive().pause();
+            clearSleep();
+          }
+        }, startFade);
+      }
+    });
+    sleepRow.appendChild(chip);
+  });
+  if(sleepFadePill){
+    sleepFadePill.addEventListener('click', () => {
+      sleepFadeOn = !sleepFadeOn;
+      sleepFadePill.classList.toggle('on', sleepFadeOn);
+      schedulePersist();
+    });
+  }
+
+  // ---------- Visualizer + RGB ----------
+  const canvas = $('bgCanvas'); const ctx = canvas.getContext('2d');
+  const rgbRing = $('rgbRing');
+  function resizeCanvas(){ canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+  resizeCanvas(); window.addEventListener('resize', resizeCanvas);
+  let hue = 250, ringAngle = 0;
+  let lastBarUpdate = 0;
+
+  // ---------- Appearance controls ----------
+  function applyAccent(a, b, c){
+    document.documentElement.style.setProperty('--grad-a', a);
+    document.documentElement.style.setProperty('--grad-b', b);
+    document.documentElement.style.setProperty('--grad-c', c);
+  }
+  document.querySelectorAll('.accent-swatch').forEach(sw => {
+    sw.addEventListener('click', () => {
+      document.querySelectorAll('.accent-swatch').forEach(s => s.classList.remove('active'));
+      sw.classList.add('active');
+      applyAccent(sw.dataset.a, sw.dataset.b, sw.dataset.c);
+      schedulePersist();
+    });
+  });
+  if(blurSlider){
+    blurSlider.addEventListener('input', () => {
+      const v = +blurSlider.value;
+      if(blurVal) blurVal.textContent = v;
+      if(artBg) artBg.style.filter = `blur(${v}px) saturate(1.6) brightness(.55)`;
+      schedulePersist();
+    });
+  }
+  if(animSpeedSlider){
+    animSpeedSlider.addEventListener('input', () => {
+      animSpeed = +animSpeedSlider.value;
+      if(animSpeedVal) animSpeedVal.textContent = animSpeed.toFixed(1) + 'x';
+      schedulePersist();
+    });
+  }
+
+  function animate(){
+    requestAnimationFrame(animate);
+    if(document.hidden) return; // CPU save when tab hidden
+
+    const now = performance.now();
+    let bass=0, mid=0, treble=0;
+    const isPlaying = getActive() && !getActive().paused;
+
+    if(analyser && isPlaying){
+      analyser.getByteFrequencyData(dataArray);
+      // throttle bar DOM writes ~30fps
+      if(now - lastBarUpdate > 33){
+        lastBarUpdate = now;
+        for(let i=0;i<barEls.length;i++){
+          const v = dataArray[Math.floor(i*dataArray.length/barEls.length)] || 0;
+          barEls[i].style.height = Math.max(4,(v/255)*36) + 'px';
+        }
+      }
+      const n = dataArray.length;
+      for(let i=0;i<n;i++){
+        const v=dataArray[i];
+        if(i<n*0.14) bass+=v;
+        else if(i<n*0.5) mid+=v;
+        else treble+=v;
+      }
+      bass /= (n*0.14*255); mid /= (n*0.36*255); treble /= (n*0.5*255);
+    } else if(!isPlaying){
+      if(now - lastBarUpdate > 50){
+        lastBarUpdate = now;
+        barEls.forEach(b => {
+          const h = parseFloat(b.style.height) || 4;
+          b.style.height = Math.max(4, h * 0.92) + 'px';
+        });
+      }
+    }
+    if(panner && is8D && audioCtx){
+      const t = audioCtx.currentTime - panStart;
+      const primary = Math.sin(t * 0.72) * 0.88;
+      const secondary = Math.sin(t * 1.85) * 0.22;
+      const tertiary = Math.sin(t * 0.31) * 0.12;
+      panner.pan.value = Math.max(-1, Math.min(1, primary + secondary + tertiary));
+    }
+
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle = '#0d0e14'; ctx.fillRect(0,0,canvas.width,canvas.height);
+    hue = (hue + (0.12 + bass*0.55) * animSpeed) % 360;
+    const cx=canvas.width/2, cy=canvas.height*0.38, r1=210+bass*280;
+    let g = ctx.createRadialGradient(cx,cy,0,cx,cy,r1);
+    g.addColorStop(0, `hsla(${hue},92%,64%,${0.34+bass*0.4})`); g.addColorStop(1,'transparent');
+    ctx.fillStyle=g; ctx.fillRect(0,0,canvas.width,canvas.height);
+    const cx2=canvas.width*0.14, cy2=canvas.height*0.86, r2=170+mid*230;
+    g = ctx.createRadialGradient(cx2,cy2,0,cx2,cy2,r2);
+    g.addColorStop(0, `hsla(${(hue+140)%360},88%,62%,${0.22+mid*0.34})`); g.addColorStop(1,'transparent');
+    ctx.fillStyle=g; ctx.fillRect(0,0,canvas.width,canvas.height);
+    const cx3=canvas.width*0.9, cy3=canvas.height*0.14, r3=150+treble*210;
+    g = ctx.createRadialGradient(cx3,cy3,0,cx3,cy3,r3);
+    g.addColorStop(0, `hsla(${(hue+280)%360},88%,67%,${0.18+treble*0.32})`); g.addColorStop(1,'transparent');
+    ctx.fillStyle=g; ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    disc.style.boxShadow = `0 22px 55px rgba(0,0,0,.65), 0 10px 26px rgba(0,0,0,.35), 0 0 ${22+bass*70}px rgba(123,92,255,${0.16+bass*0.42})`;
+    ringAngle = (ringAngle + (0.55 + bass*2.8) * animSpeed) % 360;
+    rgbRing.style.setProperty('--ang', ringAngle+'deg');
+    rgbRing.style.opacity = 0.38 + bass*0.42;
+  }
+
+  // ---------- Init ----------
+  async function init(){
+    try{
+      await openDB();
+      const metas = await loadAllTrackMeta(); // small (no audio bytes) - safe to load all at once
+      const favArr = await loadMeta('favorites') || [];
+      favorites = new Set(favArr);
+      const savedOrder = await loadMeta('queueOrder') || [];
+
+      const byId = {};
+      for(const m of metas) byId[m.id] = m;
+
+      const buildStub = (m) => ({
+        id: m.id, name: m.name, url: null, file: null, artUrl: null,
+        duration: m.duration || null, size: m.size || 0, _type: m.type || 'audio/mpeg'
+      });
+
+      // Restore in saved order if possible, otherwise just all tracks
+      const orderedIds = savedOrder.length ? savedOrder : Object.keys(byId);
+      const seen = new Set();
+
+      for(const id of orderedIds){
+        const m = byId[id];
+        if(!m || seen.has(id)) continue;
+        seen.add(id);
+        const track = buildStub(m);
+        queue.push(track);
+        if(m.liked) favorites.add(track.id);
+      }
+      // Safety: include any meta not present in the saved order
+      for(const m of metas){
+        if(seen.has(m.id)) continue;
+        const track = buildStub(m);
+        queue.push(track);
+        if(m.liked) favorites.add(track.id);
+      }
+      // Note: audio bytes and cover art are intentionally NOT fetched here for every
+      // track - only when a track is actually played (see materializeTrack). Rows show
+      // a generic icon until then; this is what keeps app startup from loading the
+      // whole library into memory every single time.
+
+      // ---------- Restore settings ----------
+      const savedVol = await loadMeta('volume');
+      if(savedVol !== null){
+        masterVolume = +savedVol;
+        volSlider.value = Math.round(masterVolume * 100);
+        getActive().volume = masterVolume;
+      }
+
+      const savedShuffle = await loadMeta('shuffle');
+      if(savedShuffle){ shuffleOn = true; shuffleBtn.classList.add('active'); }
+
+      const savedRepeat = await loadMeta('repeatMode');
+      if(savedRepeat !== null){
+        repeatMode = +savedRepeat;
+        if(repeatMode !== 0){
+          repeatBtn.classList.add('active');
+          if(repeatMode === 2){
+            repeatBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg><span class="badge">1</span>';
+          }
+        }
+      }
+
+      // Build EQ UI first so we can restore values
+      buildEqUI();
+
+      // Restore EQ gains
+      const savedEq = await loadMeta('eqGains');
+      if(Array.isArray(savedEq) && savedEq.length === 32){
+        setEqValues(savedEq);
+        document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
+      }
+
+      const savedPreamp = await loadMeta('preamp');
+      if(savedPreamp !== null){ preampSlider.value = savedPreamp; preampSlider.dispatchEvent(new Event('input')); }
+      const savedBalance = await loadMeta('balance');
+      if(savedBalance !== null){ balanceSlider.value = savedBalance; balanceSlider.dispatchEvent(new Event('input')); }
+      const savedWidenAmt = await loadMeta('widenAmount');
+      if(savedWidenAmt !== null){ widenSlider.value = savedWidenAmt; widenSlider.dispatchEvent(new Event('input')); }
+
+      const savedBass = await loadMeta('bass');
+      if(savedBass !== null){ bassBoostSlider.value = savedBass; bassBoostSlider.dispatchEvent(new Event('input')); }
+      const savedTreble = await loadMeta('treble');
+      if(savedTreble !== null){ trebleBoostSlider.value = savedTreble; trebleBoostSlider.dispatchEvent(new Event('input')); }
+      const savedVocal = await loadMeta('vocal');
+      if(savedVocal !== null){ vocalBoostSlider.value = savedVocal; vocalBoostSlider.dispatchEvent(new Event('input')); }
+      const savedPresence = await loadMeta('presence');
+      if(savedPresence !== null){ presenceSlider.value = savedPresence; presenceSlider.dispatchEvent(new Event('input')); }
+      const savedAir = await loadMeta('air');
+      if(savedAir !== null){ airSlider.value = savedAir; airSlider.dispatchEvent(new Event('input')); }
+      const savedSpeed = await loadMeta('speed');
+      if(savedSpeed && speedSlider){
+        playbackSpeed = +savedSpeed;
+        speedSlider.value = playbackSpeed;
+        speedVal.textContent = playbackSpeed.toFixed(2) + 'x';
+      }
+
+      // Restore toggles (after UI exists)
+      if(await loadMeta('crossfade')) setCrossfade(true);
+      if(await loadMeta('loudness')) setLoudness(true);
+      if(await loadMeta('mode8d')) set8D(true);
+      if(await loadMeta('widen')) setWiden(true);
+      if(await loadMeta('studio')) setStudio(true);
+      if(await loadMeta('punch')) setPunch(true);
+      if(await loadMeta('night')) setNight(true);
+      if(await loadMeta('eqEnabled') === false) toggleEqBypass();
+      if(await loadMeta('bassBoost')) setBassBoost(true);
+      if(await loadMeta('gapless')) setGapless(true);
+      if(await loadMeta('advancedLimiter')) setAdvancedLimiter(true);
+      if(await loadMeta('drc')) setDRC(true);
+      if(await loadMeta('replayGain')) setReplayGain(true);
+      if(await loadMeta('sleepFade')){
+        sleepFadeOn = true;
+        if(sleepFadePill) sleepFadePill.classList.add('on');
+      }
+      const savedBlur = await loadMeta('blur');
+      if(savedBlur !== null && blurSlider){
+        blurSlider.value = savedBlur;
+        if(blurVal) blurVal.textContent = savedBlur;
+        if(artBg) artBg.style.filter = `blur(${savedBlur}px) saturate(1.6) brightness(.55)`;
+      }
+      const savedAnim = await loadMeta('animSpeed');
+      if(savedAnim !== null && animSpeedSlider){
+        animSpeed = +savedAnim;
+        animSpeedSlider.value = animSpeed;
+        if(animSpeedVal) animSpeedVal.textContent = animSpeed.toFixed(1) + 'x';
+      }
+      const aA = await loadMeta('accentA'), aB = await loadMeta('accentB'), aC = await loadMeta('accentC');
+      if(aA && aB && aC){
+        applyAccent(aA, aB, aC);
+        document.querySelectorAll('.accent-swatch').forEach(sw => {
+          sw.classList.toggle('active', sw.dataset.a===aA && sw.dataset.b===aB);
+        });
+      }
+
+      if(queue.length > 0){
+        renderPlaylist();
+        loadTrack(0, false);
+      }
+    }catch(e){ console.warn('DB init failed', e); buildEqUI(); }
+
+    renderPlaylist();
+    animate();
+  }
+
+  // ---------- Auto-save settings on change ----------
+  function persistSettings(){
+    saveMeta('volume', masterVolume);
+    saveMeta('shuffle', shuffleOn);
+    saveMeta('repeatMode', repeatMode);
+    saveMeta('crossfade', crossfadeOn);
+    saveMeta('loudness', loudnessOn);
+    saveMeta('mode8d', is8D);
+    saveMeta('widen', widenOn);
+    saveMeta('studio', studioOn);
+    saveMeta('punch', punchOn);
+    saveMeta('night', nightOn);
+    saveMeta('eqEnabled', eqEnabled);
+    saveMeta('preamp', +preampSlider.value);
+    saveMeta('balance', +balanceSlider.value);
+    saveMeta('widenAmount', +widenSlider.value);
+    saveMeta('bass', +bassBoostSlider.value);
+    saveMeta('treble', +trebleBoostSlider.value);
+    saveMeta('vocal', +vocalBoostSlider.value);
+    saveMeta('presence', +presenceSlider.value);
+    saveMeta('air', +airSlider.value);
+    saveMeta('speed', playbackSpeed);
+    saveMeta('bassBoost', bassBoostOn);
+    saveMeta('gapless', gaplessOn);
+    saveMeta('advancedLimiter', advancedLimiterOn);
+    saveMeta('drc', drcOn);
+    saveMeta('replayGain', replayGainOn);
+    saveMeta('sleepFade', sleepFadeOn);
+    saveMeta('blur', blurSlider ? +blurSlider.value : 75);
+    saveMeta('animSpeed', animSpeed);
+    const activeSw = document.querySelector('.accent-swatch.active');
+    if(activeSw){
+      saveMeta('accentA', activeSw.dataset.a);
+      saveMeta('accentB', activeSw.dataset.b);
+      saveMeta('accentC', activeSw.dataset.c);
+    }
+
+    // Current 32-band values
+    const gains = [];
+    for(let i=0;i<32;i++){
+      const el = $('eqVal'+i);
+      gains.push(el ? +(el.textContent.replace('+','')) : 0);
+    }
+    saveMeta('eqGains', gains);
+    saveQueueOrder();
+  }
+
+  // Debounced save
+  let persistTimer = null;
+  function schedulePersist(){
+    clearTimeout(persistTimer);
+    persistTimer = setTimeout(persistSettings, 400);
+  }
+
+  // Hook common controls to auto-save
+  volSlider.addEventListener('change', schedulePersist);
+  shuffleBtn.addEventListener('click', () => setTimeout(schedulePersist, 50));
+  repeatBtn.addEventListener('click', () => setTimeout(schedulePersist, 50));
+  crossfadeChip.addEventListener('click', () => setTimeout(schedulePersist, 50));
+  switchCrossfade.addEventListener('click', () => setTimeout(schedulePersist, 50));
+  loudnessChip.addEventListener('click', () => setTimeout(schedulePersist, 50));
+  switchLoudness.addEventListener('click', () => setTimeout(schedulePersist, 50));
+  mode8dChip.addEventListener('click', () => setTimeout(schedulePersist, 50));
+  switch8d.addEventListener('click', () => setTimeout(schedulePersist, 50));
+  widenChip.addEventListener('click', () => setTimeout(schedulePersist, 50));
+  switchWiden.addEventListener('click', () => setTimeout(schedulePersist, 50));
+  studioChip.addEventListener('click', () => setTimeout(schedulePersist, 50));
+  punchChip.addEventListener('click', () => setTimeout(schedulePersist, 50));
+  nightChip.addEventListener('click', () => setTimeout(schedulePersist, 50));
+  eqBypassPill.addEventListener('click', () => setTimeout(schedulePersist, 50));
+  preampSlider.addEventListener('change', schedulePersist);
+  balanceSlider.addEventListener('change', schedulePersist);
+  widenSlider.addEventListener('change', schedulePersist);
+  bassBoostSlider.addEventListener('change', schedulePersist);
+  trebleBoostSlider.addEventListener('change', schedulePersist);
+  vocalBoostSlider.addEventListener('change', schedulePersist);
+  presenceSlider.addEventListener('change', schedulePersist);
+  airSlider.addEventListener('change', schedulePersist);
+  if(speedSlider) speedSlider.addEventListener('change', schedulePersist);
+
+  // Also save EQ when fader is released
+  document.addEventListener('pointerup', () => {
+    if(document.querySelector('.fader-track:active, .fader-track[data-dragging]')) schedulePersist();
+    else schedulePersist();
+  });
+
+  if('serviceWorker' in navigator){
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').catch(()=>{});
+    });
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
