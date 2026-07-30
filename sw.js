@@ -11,6 +11,7 @@ const SHELL_URLS = [
 ];
 
 self.addEventListener('install', (event) => {
+  console.log('%c[SW] 🗿 سرویس‌ورکر فعال شد!', 'color: #00ff00; font-weight: bold;');
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => cache.addAll(SHELL_URLS))
@@ -28,8 +29,6 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Exact-URL matching (not a fragile string-suffix check) so we only ever
-// intern the app's own small shell files, nothing else.
 const SHELL_URL_SET = new Set(SHELL_URLS.map((u) => new URL(u, self.registration.scope).href));
 const INDEX_URL = new URL('./index.html', self.registration.scope).href;
 
@@ -37,15 +36,32 @@ self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
 
+  // ۱. خفت کردن تبلیغات قبل از هر پردازش دیگه! 🛑
+  const reqUrl = req.url.toLowerCase();
+  if (
+    reqUrl.includes('appgeyser') || 
+    reqUrl.includes('ads') || 
+    reqUrl.includes('admob') || 
+    reqUrl.includes('banner')
+  ) {
+    console.warn(`%c[SW] ⛔ ورود تبلیغات چرت و پرت بدرد نخور اکیداً ممنوع! -> Blocked: ${req.url}`, 'color: #ff3333; font-weight: bold;');
+    
+    // پاسخ خالی ۴۰۴ برای بنبست کردن تبلیغ
+    return event.respondWith(
+      new Response('', { status: 404, statusText: 'Ads Completely Blocked' })
+    );
+  }
+
+  // ۲. منطق تمیز خودت برای مدیریت شِل و شبکه
   const isNavigation = req.mode === 'navigate';
   const isShellUrl = SHELL_URL_SET.has(req.url);
-  if (!isNavigation && !isShellUrl) return; // everything else just goes to the network as normal
+  if (!isNavigation && !isShellUrl) return; // باقی درخواست‌ها عادی میرن شبکه
 
   const cacheKey = isNavigation ? INDEX_URL : req.url;
 
   event.respondWith(
     caches.match(cacheKey).then((cached) => {
-      // cache-first for instant offline loads, but refresh the cache in the background
+      // cache-first برای سرعت بالا، همراه با آپدیت پس‌زمینه
       const networkFetch = fetch(req).then((res) => {
         const clone = res.clone();
         caches.open(CACHE_NAME).then((cache) => cache.put(cacheKey, clone));
